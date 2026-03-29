@@ -1,21 +1,9 @@
-const targetAdIds = [
-  "PARLE_MARIE",
-  "KAMLA_PASAND",
-  "VIMAL",
-  "MY11C",
-  "POKERBAAZI",
-  "POKER_BAAZI",
-  "POLICY_BAZAAR",
-  "PR-25-011191_TATAIPL2025_IPL18_ipl18HANGOUTEVR20sEng_English_VCTA_NA", //sidhu ipl ad
-  "PR-25-012799_TATAIPL2025_IPL18_IPL18BHOJPURI20sBHOmob_Hindi_VCTA_20",
-];
-
-const MUTE_ALL_ADS = true; // Set to true to mute all ads
-
 const durationRegexes = [
-  /(\d{1,3})s(?:Eng(?:lish)?|Hin(?:di)?)/i, // "20sEng", "15sHindi", "10sHin"
-  /(?:HIN|ENG|HINDI|ENGLISH)[^\d]*(\d{1,3})/i, // "HIN_10", "ENG_15"
+  /(\d{1,3})s(?:Eng(?:lish)?|Hin(?:di)?)/i,
+  /(?:HIN|ENG|HINDI|ENGLISH)[^\d]*(\d{1,3})/i,
 ];
+
+const unmuteTimeouts = new Map();
 
 function notifyTab(tabId, type, payload = {}) {
   chrome.tabs.sendMessage(tabId, { type, ...payload }, () => {
@@ -34,43 +22,55 @@ chrome.webRequest.onBeforeRequest.addListener(
     console.log(`Ad id: ${adName}`);
 
     if (adName) {
-      const adIdMatch =
-        MUTE_ALL_ADS || targetAdIds.some((id) => adName.includes(id));
+      let durationSec = 10;
+      for (const regex of durationRegexes) {
+        const match = adName.match(regex);
+        if (match) {
+          durationSec = parseInt(match[1], 10);
+          break;
+        }
+      }
 
-      if (adIdMatch) {
-        let durationSec = 10;
-        for (const regex of durationRegexes) {
-          const match = adName.match(regex);
-          if (match) {
-            durationSec = parseInt(match[1], 10);
-            break;
-          }
+      console.log(`Muting ${adName} for ${durationSec} seconds`);
+
+      const tabs = await chrome.tabs.query({ url: "*://*.hotstar.com/*" });
+
+      for (const tab of tabs) {
+        const tabId = tab.id;
+        if (tabId == null) {
+          continue;
         }
 
-        console.log(`Muting ${adName} for ${durationSec} seconds`);
+        const isMuted = tab.mutedInfo?.muted;
 
-        const tabs = await chrome.tabs.query({ url: "*://*.hotstar.com/*" });
+        notifyTab(tabId, "AD_STARTED", { adName, durationSec });
 
-        for (const tab of tabs) {
-          if (!tab.mutedInfo.muted) {
-            notifyTab(tab.id, "AD_STARTED", { adName, durationSec });
-            chrome.tabs.update(tab.id, { muted: true });
-            //  console.log(`Muted tab ${tab.id}`);
-
-            setTimeout(
-              () => {
-                chrome.tabs.get(tab.id, (updatedTab) => {
-                  if (updatedTab && updatedTab.mutedInfo.muted) {
-                    chrome.tabs.update(tab.id, { muted: false });
-                    notifyTab(tab.id, "AD_ENDED", { adName });
-                    //  console.log(`Unmuted tab ${tab.id}`);
-                  }
-                });
-              },
-              durationSec * 1000 - 100,
-            ); // some buffer for next tracking pixel
-          }
+        if (!isMuted) {
+          chrome.tabs.update(tabId, { muted: true });
+          console.log(`Muted tab ${tabId}`);
         }
+
+        const existingTimeout = unmuteTimeouts.get(tabId);
+        if (existingTimeout) {
+          clearTimeout(existingTimeout);
+        }
+
+        const timeoutId = setTimeout(() => {
+          unmuteTimeouts.delete(tabId);
+          chrome.tabs.get(tabId, (updatedTab) => {
+            if (chrome.runtime.lastError || !updatedTab) {
+              return;
+            }
+
+            if (updatedTab.mutedInfo?.muted) {
+              chrome.tabs.update(tabId, { muted: false });
+              notifyTab(tabId, "AD_ENDED", { adName });
+              console.log(`Unmuted tab ${tabId}`);
+            }
+          });
+        }, durationSec * 1000);
+
+        unmuteTimeouts.set(tabId, timeoutId);
       }
     }
   },

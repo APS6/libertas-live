@@ -3,27 +3,12 @@ const IFRAME_ID = "libertas-score-iframe";
 
 function extractScoreIdFromUrl() {
   const url = new URL(window.location.href);
-
-  const queryKeys = ["id", "matchId", "contentId", "cid"];
-  for (const key of queryKeys) {
-    const value = url.searchParams.get(key);
-    if (value) return value;
-  }
-
-  const ignoredSegments = new Set([
-    "",
-    "in",
-    "sports",
-    "cricket",
-    "video",
-    "live",
-    "watch",
-  ]);
-
   const segments = url.pathname.split("/");
-  for (let i = segments.length - 1; i >= 0; i -= 1) {
-    const segment = segments[i];
-    if (!ignoredSegments.has(segment)) {
+
+  const vsPattern = /^[a-z0-9]+-vs-[a-z0-9-]+$/i;
+
+  for (const segment of segments) {
+    if (vsPattern.test(segment)) {
       return segment;
     }
   }
