@@ -1,5 +1,5 @@
-const OVERLAY_ID = "adknockout-score-overlay";
-const IFRAME_ID = "adknockout-score-iframe";
+const OVERLAY_ID = "libertas-score-overlay";
+const IFRAME_ID = "libertas-score-iframe";
 
 function extractScoreIdFromUrl() {
   const url = new URL(window.location.href);
