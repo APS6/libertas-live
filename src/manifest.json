@@ -1,0 +1,22 @@
+{
+  "name": "Adknockout",
+  "version": "0.0.1",
+  "description": "To save humanity!!!",
+  "manifest_version": 3,
+  "permissions": ["webRequest", "tabs"],
+  "host_permissions": ["*://*.hotstar.com/*"],
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://www.hotstar.com/in/sports/cricket/*/*/video/live/watch",
+        "https://www.hotstar.com/in/sports/sports/*/*/video/live/watch"
+      ],
+      "js": ["content.js"],
+      "run_at": "document_start"
+    }
+  ]
+}
