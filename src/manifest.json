@@ -1,13 +1,27 @@
 {
-  "name": "Libertas Live - Better cricket for all",
+  "name": "Libertas Live - A better IPL experience for all",
   "version": "0.0.1",
-  "description": "To save humanity!!!",
+  "description": "Enhance your IPL viewing experience by replacing distractions with a clean, real-time scorecard.",
   "manifest_version": 3,
-  "permissions": ["webRequest", "tabs"],
+  "permissions": ["webRequest", "tabs", "storage", "scripting"],
   "host_permissions": ["*://*.hotstar.com/*"],
   "background": {
     "service_worker": "background.js",
+    "scripts": ["background.js"],
     "type": "module"
+  },
+  "icons": {
+    "16": "icons/icon16.png",
+    "32": "icons/icon32.png",
+    "48": "icons/icon32.png",
+    "128": "icons/icon512.png"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "32": "icons/icon32.png"
+    }
   },
   "content_scripts": [
     {

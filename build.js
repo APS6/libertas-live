@@ -46,5 +46,6 @@ if (fs.existsSync(htmlPath)) {
 }
 
 fse.copyFileSync(`src/manifest.json`, path.join(outDir, "manifest.json"));
+fse.copySync(path.join(srcDir, "icons"), path.join(outDir, "icons"));
 
 console.log(`✅ Built`);
