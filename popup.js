@@ -5,7 +5,7 @@ const DEFAULT_SETTINGS = {
   aggressiveness: "normal",
 };
 
-const DEV_MODE = true;
+const DEV_MODE = false;
 
 const PRESET_HINTS = {
   relaxed: "Ends the scorecard 100ms before the detected duration.",

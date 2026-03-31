@@ -16,7 +16,7 @@ const PRESET_OFFSET_MS = {
   aggressive: 300,
 };
 
-const DEV_MODE = true;
+const DEV_MODE = false;
 
 const unmuteTimeouts = new Map();
 
