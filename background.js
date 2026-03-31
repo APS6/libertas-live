@@ -7,7 +7,7 @@ const DEFAULT_SETTINGS = {
   audioMode: "mute",
   adVolume: 15,
   overlayEnabled: true,
-  aggressiveness: "normal",
+  aggressiveness: "aggressive",
 };
 
 const PRESET_OFFSET_MS = {
@@ -17,6 +17,7 @@ const PRESET_OFFSET_MS = {
 };
 
 const DEV_MODE = false;
+const EMERGENCY_EXIT_MS = 45_000;
 
 const unmuteTimeouts = new Map();
 
@@ -94,6 +95,7 @@ function clearAdTimeout(tabId) {
   }
 
   clearTimeout(existingTimeout.timeoutId);
+  clearTimeout(existingTimeout.emergencyTimeoutId);
   unmuteTimeouts.delete(tabId);
   return existingTimeout;
 }
@@ -175,7 +177,30 @@ async function startAdHandling({ tabs, adName, durationSec, settings }) {
       );
     }, durationMs);
 
-    unmuteTimeouts.set(tabId, { timeoutId, shouldUnmute, adName });
+    const emergencyTimeoutId = setTimeout(() => {
+      const activeTimeout = unmuteTimeouts.get(tabId);
+      if (
+        !activeTimeout ||
+        activeTimeout.timeoutId !== timeoutId ||
+        activeTimeout.emergencyTimeoutId !== emergencyTimeoutId
+      ) {
+        return;
+      }
+
+      unmuteTimeouts.delete(tabId);
+      notifyAdEndedAndMaybeUnmute(
+        tabId,
+        activeTimeout.adName,
+        activeTimeout.shouldUnmute,
+      );
+    }, EMERGENCY_EXIT_MS);
+
+    unmuteTimeouts.set(tabId, {
+      timeoutId,
+      emergencyTimeoutId,
+      shouldUnmute,
+      adName,
+    });
   }
 }
 

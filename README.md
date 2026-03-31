@@ -4,8 +4,9 @@
 **A better live IPL viewing experience for all.**
 
 Libertas Live is a browser extension that enhances your IPL viewing experience on Hotstar by automatically detecting promotional breaks, managing audio, and replacing visual distractions with a clean, real-time scorecard overlay. Never miss a ball of the match, but skip the repetitive interruptions!
+
 <p align="center">
-  <img src="icons/icon512.png" width="128" alt="Libertas Live Logo">
+  <img src="icons/icon512.png" width="200" alt="Libertas Live Logo">
 </p>
 
 ## ✨ Features
@@ -38,3 +39,5 @@ Click on the Libertas extension icon in your browser toolbar to open the popup. 
 - **Break Volume:** Set the exact percentage for reduced volume.
 - **Overlay:** Toggle the live scorecard overlay on or off.
 - **Aggressiveness:** Fine-tune the timing offsets for break starts/ends to match your internet connection.
+
+![Popup Settings](images/popup.png)

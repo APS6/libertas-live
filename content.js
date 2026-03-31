@@ -7,6 +7,27 @@ const DEFAULT_SETTINGS = {
 let settings = { ...DEFAULT_SETTINGS };
 let adAudioSession = null;
 
+function getOverlayMountTarget() {
+  if (document.fullscreenElement instanceof Element) {
+    return document.fullscreenElement;
+  }
+
+  return document.documentElement;
+}
+
+function mountOverlay(overlay) {
+  const target = getOverlayMountTarget();
+  if (!target) {
+    return false;
+  }
+
+  if (overlay.parentElement !== target) {
+    target.appendChild(overlay);
+  }
+
+  return true;
+}
+
 function extractScoreIdFromUrl() {
   const url = new URL(window.location.href);
   const segments = url.pathname.split("/");
@@ -28,7 +49,7 @@ function isHotstarSportsPage() {
 
 function getScoreUrl() {
   const scoreId = encodeURIComponent(extractScoreIdFromUrl());
-  return `https://hostb.anirudhasah.com/score/${scoreId}`;
+  return `https://score.anirudhasah.com/score/${scoreId}`;
 }
 
 function ensureOverlay() {
@@ -67,8 +88,8 @@ function ensureOverlay() {
     overlay.appendChild(iframe);
 
     const mount = () => {
-      if (document.documentElement) {
-        document.documentElement.appendChild(overlay);
+      if (mountOverlay(overlay)) {
+        return;
       } else {
         requestAnimationFrame(mount);
       }
@@ -78,6 +99,8 @@ function ensureOverlay() {
 
     return { overlay: null, iframe: null };
   }
+
+  mountOverlay(overlay);
 
   return { overlay, iframe };
 }
@@ -204,6 +227,20 @@ function observeRouteChanges() {
   window.addEventListener("popstate", onRouteChange);
 }
 
+function observeFullscreenChanges() {
+  const onFullscreenChange = () => {
+    const overlay = document.getElementById(OVERLAY_ID);
+    if (!overlay) {
+      return;
+    }
+
+    mountOverlay(overlay);
+  };
+
+  document.addEventListener("fullscreenchange", onFullscreenChange);
+  document.addEventListener("webkitfullscreenchange", onFullscreenChange);
+}
+
 chrome.runtime.onMessage.addListener((message) => {
   if (message?.type === "AD_STARTED") {
     if (message.overlayEnabled != null) {
@@ -229,3 +266,4 @@ chrome.runtime.onMessage.addListener((message) => {
 
 loadSettings();
 observeRouteChanges();
+observeFullscreenChanges();
