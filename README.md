@@ -21,7 +21,7 @@ Currently, Libertas Live can be installed manually as an unpacked extension in C
 
 1. **Clone the repository:**
    ```bash
-   git clone https://github.com/aps6/libertas.git
+   git clone https://github.com/aps6/libertas-live.git
    cd libertas
    ```
 
