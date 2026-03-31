@@ -1,12 +1,12 @@
-<p align="center">
-  <img src="icons/icon512.png" width="128" alt="Libertas Live Logo">
-</p>
 
-# Libertas Live 🏏
+# Libertas Live 
 
 **A better live IPL viewing experience for all.**
 
 Libertas Live is a browser extension that enhances your IPL viewing experience on Hotstar by automatically detecting promotional breaks, managing audio, and replacing visual distractions with a clean, real-time scorecard overlay. Never miss a ball of the match, but skip the repetitive interruptions!
+<p align="center">
+  <img src="icons/icon512.png" width="128" alt="Libertas Live Logo">
+</p>
 
 ## ✨ Features
 
