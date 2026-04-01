@@ -14,6 +14,7 @@ const PRESET_OFFSET_MS = {
   relaxed: -100,
   normal: 100,
   aggressive: 300,
+  super_aggressive: 1000,
 };
 
 const DEV_MODE = false;
@@ -24,9 +25,12 @@ const unmuteTimeouts = new Map();
 function normalizeSettings(raw = {}) {
   const audioMode = raw.audioMode === "volume" ? "volume" : "mute";
   const adVolume = Number.parseInt(raw.adVolume, 10);
-  const aggressiveness = ["relaxed", "normal", "aggressive"].includes(
-    raw.aggressiveness,
-  )
+  const aggressiveness = [
+    "relaxed",
+    "normal",
+    "aggressive",
+    "super_aggressive",
+  ].includes(raw.aggressiveness)
     ? raw.aggressiveness
     : "aggressive";
 

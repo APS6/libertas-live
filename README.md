@@ -40,6 +40,6 @@ Click on the Libertas extension icon in your browser toolbar to open the popup. 
 - **Audio Mode:** Mute entirely or reduce volume during breaks.
 - **Break Volume:** Set the exact percentage for reduced volume.
 - **Overlay:** Toggle the live scorecard overlay on or off.
-- **Aggressiveness:** Fine-tune the timing offsets for break starts/ends to match your internet connection.
+- **Aggressiveness:** Fine-tune the timing offsets for break starts/ends to your preference.
 
 ![Popup Settings](images/popup.png)

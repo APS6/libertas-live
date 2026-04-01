@@ -12,6 +12,8 @@ const PRESET_HINTS = {
   normal: "Ends the scorecard 100ms after the detected duration.",
   aggressive:
     "Ends the scorecard 300ms after the detected duration to prevent early cutoffs.",
+  super_aggressive:
+    "Ends the scorecard 1000ms after the detected duration to completely prevent early cutoffs.",
 };
 
 function sendRuntimeMessage(payload) {
@@ -38,7 +40,12 @@ function clampVolume(value) {
 
 function normalizeSettings(raw = {}) {
   const audioMode = raw.audioMode === "volume" ? "volume" : "mute";
-  const aggressivenessOptions = new Set(["relaxed", "normal", "aggressive"]);
+  const aggressivenessOptions = new Set([
+    "relaxed",
+    "normal",
+    "aggressive",
+    "super_aggressive",
+  ]);
 
   return {
     audioMode,
