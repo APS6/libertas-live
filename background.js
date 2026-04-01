@@ -100,8 +100,13 @@ function clearAdTimeout(tabId) {
   return existingTimeout;
 }
 
-function notifyAdEndedAndMaybeUnmute(tabId, adName, shouldUnmute) {
-  notifyTab(tabId, "AD_ENDED", { adName });
+function notifyAdEndedAndMaybeUnmute(
+  tabId,
+  adName,
+  shouldUnmute,
+  endReason = "duration-complete",
+) {
+  notifyTab(tabId, "AD_ENDED", { adName, endReason });
 
   if (!shouldUnmute) {
     return;
@@ -116,6 +121,31 @@ function notifyAdEndedAndMaybeUnmute(tabId, adName, shouldUnmute) {
       chrome.tabs.update(tabId, { muted: false });
     }
   });
+}
+
+function buildIncidentReportPayload({ adName, pageUrl }) {
+  return {
+    adName: adName || "unknown-ad",
+    pageUrl: pageUrl || "unknown-page",
+    timestamp: new Date().toISOString(),
+  };
+}
+
+async function submitIncidentReport(payload) {
+  const response = await fetch(
+    "https://score.anirudhasah.com/api/incident-reports",
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
+    },
+  );
+
+  if (!response.ok) {
+    throw new Error(`Incident report failed with status ${response.status}`);
+  }
 }
 
 async function getHotstarTabs() {
@@ -174,6 +204,7 @@ async function startAdHandling({ tabs, adName, durationSec, settings }) {
         tabId,
         activeTimeout.adName,
         activeTimeout.shouldUnmute,
+        "duration-complete",
       );
     }, durationMs);
 
@@ -192,6 +223,7 @@ async function startAdHandling({ tabs, adName, durationSec, settings }) {
         tabId,
         activeTimeout.adName,
         activeTimeout.shouldUnmute,
+        "emergency-timeout",
       );
     }, EMERGENCY_EXIT_MS);
 
@@ -204,7 +236,7 @@ async function startAdHandling({ tabs, adName, durationSec, settings }) {
   }
 }
 
-async function endAdHandling({ tabs, adName }) {
+async function endAdHandling({ tabs, adName, endReason = "manual-end" }) {
   for (const tab of tabs) {
     const tabId = tab.id;
     if (tabId == null) {
@@ -216,6 +248,7 @@ async function endAdHandling({ tabs, adName }) {
       tabId,
       adName || previousTimeout?.adName || "manual-end",
       previousTimeout?.shouldUnmute ?? false,
+      endReason,
     );
   }
 }
@@ -251,6 +284,43 @@ chrome.storage.onChanged.addListener(async (changes, areaName) => {
 });
 
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+  if (message?.type === "USER_GO_BACK_NOW") {
+    (async () => {
+      const tabs = await getActiveHotstarTabs();
+      if (tabs.length === 0) {
+        sendResponse({ ok: false, message: "No active Hotstar tab found." });
+        return;
+      }
+
+      await endAdHandling({ tabs, endReason: "manual-end" });
+      sendResponse({ ok: true });
+    })();
+
+    return true;
+  }
+
+  if (message?.type === "REPORT_INCIDENT") {
+    const payload = buildIncidentReportPayload({
+      adName: message.adName,
+      pageUrl: message.pageUrl,
+    });
+
+    (async () => {
+      try {
+        await submitIncidentReport(payload);
+        sendResponse({ ok: true });
+      } catch (error) {
+        console.error("Failed to submit incident report", error);
+        sendResponse({
+          ok: false,
+          message: "Failed to submit incident report.",
+        });
+      }
+    })();
+
+    return true;
+  }
+
   if (message?.type === "TEST_AD_START") {
     if (!DEV_MODE) {
       sendResponse({ ok: false, message: "Dev tools disabled." });
@@ -300,7 +370,11 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
         return;
       }
 
-      await endAdHandling({ tabs, adName: "TEST_AD_MANUAL_END" });
+      await endAdHandling({
+        tabs,
+        adName: "TEST_AD_MANUAL_END",
+        endReason: "test-manual-end",
+      });
       sendResponse({ ok: true, message: "Simulated ad ended." });
     })();
 
@@ -310,7 +384,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   return false;
 });
 
-console.log("Hotstar Adblocker extension loaded");
+console.log("extension loaded");
 
 chrome.webRequest.onBeforeRequest.addListener(
   async (details) => {

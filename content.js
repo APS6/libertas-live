@@ -1,11 +1,240 @@
 const OVERLAY_ID = "libertas-score-overlay";
 const IFRAME_ID = "libertas-score-iframe";
+const CONTROL_POPUP_ID = "libertas-overlay-controls";
+const REPORT_POPUP_ID = "libertas-incident-popup";
+const REPORT_POPUP_VISIBLE_MS = 5000;
 const DEFAULT_SETTINGS = {
   overlayEnabled: true,
 };
 
 let settings = { ...DEFAULT_SETTINGS };
 let adAudioSession = null;
+let adOverlayState = null;
+let reportPopupTimeoutId = null;
+let reportPopupAdName = "unknown-ad";
+
+function formatSecondsRemaining(secondsRemaining) {
+  const safeSeconds = Math.max(0, Math.ceil(secondsRemaining));
+  return safeSeconds;
+}
+
+function getAdIdForDisplay() {
+  return adOverlayState?.adName || "unknown-ad";
+}
+
+function clearAdOverlayTicker() {
+  if (!adOverlayState?.tickerId) {
+    return;
+  }
+
+  clearInterval(adOverlayState.tickerId);
+  adOverlayState.tickerId = null;
+}
+
+function removeControlPopup() {
+  const existingPopup = document.getElementById(CONTROL_POPUP_ID);
+  if (existingPopup) {
+    existingPopup.remove();
+  }
+}
+
+function teardownAdOverlayUi() {
+  clearAdOverlayTicker();
+  removeControlPopup();
+}
+
+function clearReportPopupTimeout() {
+  if (!reportPopupTimeoutId) {
+    return;
+  }
+
+  clearTimeout(reportPopupTimeoutId);
+  reportPopupTimeoutId = null;
+}
+
+function removeReportPopup() {
+  const popup = document.getElementById(REPORT_POPUP_ID);
+  if (popup) {
+    popup.remove();
+  }
+
+  clearReportPopupTimeout();
+}
+
+function reportIncident() {
+  chrome.runtime.sendMessage({
+    type: "REPORT_INCIDENT",
+    adName: reportPopupAdName || getAdIdForDisplay(),
+    pageUrl: window.location.href,
+  });
+
+  removeReportPopup();
+}
+
+function goBackNow() {
+  hideOverlay();
+  endAdVolumeSession();
+
+  chrome.runtime.sendMessage({
+    type: "USER_GO_BACK_NOW",
+  });
+}
+
+function showReportPopup(adName) {
+  removeReportPopup();
+  reportPopupAdName = adName || "unknown-ad";
+
+  const popup = document.createElement("div");
+  popup.id = REPORT_POPUP_ID;
+  popup.style.cssText = [
+    "position: fixed",
+    "right: 20px",
+    "bottom: 20px",
+    "z-index: 2147483647",
+    "width: min(92vw, 340px)",
+    "background: rgba(17, 17, 17, 0.94)",
+    "color: #fff",
+    "border: 1px solid rgba(255, 255, 255, 0.2)",
+    "border-radius: 12px",
+    "padding: 12px",
+    "font-family: system-ui, -apple-system, Segoe UI, sans-serif",
+    "box-sizing: border-box",
+    "display: flex",
+    "flex-direction: column",
+    "gap: 10px",
+  ].join(";");
+
+  const text = document.createElement("div");
+  text.textContent = "If there was a mistake, you can report this incident.";
+  text.style.cssText = ["font-size: 13px", "line-height: 1.4"].join(";");
+
+  const adId = document.createElement("div");
+  adId.textContent = `Ad id: ${reportPopupAdName}`;
+  adId.style.cssText = [
+    "font-size: 12px",
+    "opacity: 0.85",
+    "word-break: break-all",
+  ].join(";");
+
+  const actions = document.createElement("div");
+  actions.style.cssText = ["display: flex", "justify-content: flex-end"].join(
+    ";",
+  );
+
+  const reportButton = document.createElement("button");
+  reportButton.type = "button";
+  reportButton.textContent = "Report incident";
+  reportButton.style.cssText = [
+    "appearance: none",
+    "border: 0",
+    "border-radius: 8px",
+    "padding: 8px 10px",
+    "font-size: 13px",
+    "font-weight: 500",
+    "cursor: pointer",
+    "background: #f2f2f2",
+    "color: #111",
+  ].join(";");
+  reportButton.addEventListener("click", () => {
+    reportIncident();
+  });
+
+  actions.appendChild(reportButton);
+  popup.appendChild(text);
+  popup.appendChild(adId);
+  popup.appendChild(actions);
+  document.documentElement.appendChild(popup);
+
+  reportPopupTimeoutId = setTimeout(() => {
+    removeReportPopup();
+  }, REPORT_POPUP_VISIBLE_MS);
+}
+
+function updateCountdownLabel(label) {
+  if (!adOverlayState?.endAt) {
+    label.textContent = "Going back in 0 sec";
+    return;
+  }
+
+  const secondsRemaining = (adOverlayState.endAt - Date.now()) / 1000;
+  label.textContent = `Going back in ${formatSecondsRemaining(secondsRemaining)} sec`;
+}
+
+function ensureControlPopup() {
+  const overlay = document.getElementById(OVERLAY_ID);
+  if (!overlay) {
+    return;
+  }
+
+  let popup = document.getElementById(CONTROL_POPUP_ID);
+  if (!popup) {
+    popup = document.createElement("div");
+    popup.id = CONTROL_POPUP_ID;
+    popup.style.cssText = [
+      "position: absolute",
+      "right: 20px",
+      "bottom: 20px",
+      "z-index: 2",
+      "width: min(92vw, 340px)",
+      "background: rgba(17, 17, 17, 0.9)",
+      "backdrop-filter: blur(6px)",
+      "color: #fff",
+      "border: 1px solid rgba(255, 255, 255, 0.16)",
+      "border-radius: 12px",
+      "padding: 14px",
+      "display: flex",
+      "align-items: center",
+      "gap: 10px",
+      "font-family: system-ui, -apple-system, Segoe UI, sans-serif",
+      "box-sizing: border-box",
+    ].join(";");
+
+    const countdown = document.createElement("div");
+    countdown.id = `${CONTROL_POPUP_ID}-countdown`;
+    countdown.style.cssText = [
+      "font-size: 14px",
+      "font-weight: 500",
+      "white-space: nowrap",
+      "margin-right: auto",
+    ].join(";");
+
+    const goBackButton = document.createElement("button");
+    goBackButton.type = "button";
+    goBackButton.textContent = "Go back now";
+    goBackButton.style.cssText = [
+      "appearance: none",
+      "border: 0",
+      "border-radius: 8px",
+      "padding: 8px 10px",
+      "font-size: 13px",
+      "font-weight: 500",
+      "cursor: pointer",
+      "background: #f2f2f2",
+      "color: #111",
+    ].join(";");
+    goBackButton.addEventListener("click", goBackNow);
+
+    popup.appendChild(countdown);
+    popup.appendChild(goBackButton);
+    overlay.appendChild(popup);
+  }
+
+  const countdownLabel = document.getElementById(
+    `${CONTROL_POPUP_ID}-countdown`,
+  );
+  if (!(countdownLabel instanceof HTMLElement)) {
+    return;
+  }
+
+  updateCountdownLabel(countdownLabel);
+  clearAdOverlayTicker();
+  const tickerId = setInterval(() => updateCountdownLabel(countdownLabel), 250);
+  if (!adOverlayState) {
+    adOverlayState = { adName: "unknown-ad", endAt: null, tickerId };
+  } else {
+    adOverlayState.tickerId = tickerId;
+  }
+}
 
 function getOverlayMountTarget() {
   if (document.fullscreenElement instanceof Element) {
@@ -122,6 +351,7 @@ function showOverlay() {
 
   ensureOverlay();
   revealOverlay();
+  ensureControlPopup();
 }
 
 function hideOverlay() {
@@ -129,6 +359,8 @@ function hideOverlay() {
   if (overlay) {
     overlay.style.display = "none";
   }
+
+  teardownAdOverlayUi();
 }
 
 function getMediaElements() {
@@ -247,6 +479,16 @@ chrome.runtime.onMessage.addListener((message) => {
       applySettings({ overlayEnabled: message.overlayEnabled });
     }
 
+    adOverlayState = {
+      adName: message.adName || "unknown-ad",
+      endAt:
+        typeof message.durationSec === "number" &&
+        Number.isFinite(message.durationSec)
+          ? Date.now() + Math.max(0, message.durationSec) * 1000
+          : null,
+      tickerId: null,
+    };
+
     showOverlay();
 
     if (message.audioMode === "volume") {
@@ -255,8 +497,17 @@ chrome.runtime.onMessage.addListener((message) => {
   }
 
   if (message?.type === "AD_ENDED") {
+    const lastAdName = adOverlayState?.adName || "unknown-ad";
     hideOverlay();
     endAdVolumeSession();
+    adOverlayState = null;
+
+    if (
+      message.endReason === "manual-end" ||
+      message.endReason === "emergency-timeout"
+    ) {
+      showReportPopup(lastAdName);
+    }
   }
 
   if (message?.type === "SETTINGS_UPDATED") {
