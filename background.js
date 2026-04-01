@@ -28,7 +28,7 @@ function normalizeSettings(raw = {}) {
     raw.aggressiveness,
   )
     ? raw.aggressiveness
-    : "normal";
+    : "aggressive";
 
   return {
     audioMode,
@@ -262,11 +262,7 @@ async function notifyTabs(type, payload = {}) {
   }
 }
 
-chrome.storage.onChanged.addListener(async (changes, areaName) => {
-  if (areaName !== "sync") {
-    return;
-  }
-
+chrome.storage.onChanged.addListener(async (changes) => {
   const relevantKeys = [
     "audioMode",
     "adVolume",

@@ -2,7 +2,7 @@ const DEFAULT_SETTINGS = {
   audioMode: "mute",
   adVolume: 15,
   overlayEnabled: true,
-  aggressiveness: "normal",
+  aggressiveness: "aggressive",
 };
 
 const DEV_MODE = false;
