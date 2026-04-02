@@ -12,6 +12,7 @@ let adAudioSession = null;
 let adOverlayState = null;
 let reportPopupTimeoutId = null;
 let reportPopupAdName = "unknown-ad";
+let adFallbackTimeoutId = null;
 
 function formatSecondsRemaining(secondsRemaining) {
   const safeSeconds = Math.max(0, Math.ceil(secondsRemaining));
@@ -29,6 +30,37 @@ function clearAdOverlayTicker() {
 
   clearInterval(adOverlayState.tickerId);
   adOverlayState.tickerId = null;
+}
+
+function clearAdFallbackTimeout() {
+  if (!adFallbackTimeoutId) {
+    return;
+  }
+
+  clearTimeout(adFallbackTimeoutId);
+  adFallbackTimeoutId = null;
+}
+
+function scheduleAdFallbackEnd({ adName, durationMs, shouldUnmute }) {
+  clearAdFallbackTimeout();
+
+  if (!Number.isFinite(durationMs) || durationMs < 0) {
+    return;
+  }
+
+  const fallbackDelayMs = Math.max(1_000, durationMs + 5_000);
+  adFallbackTimeoutId = setTimeout(() => {
+    adFallbackTimeoutId = null;
+    hideOverlay();
+    endAdVolumeSession();
+    adOverlayState = null;
+
+    chrome.runtime.sendMessage({
+      type: "AD_FALLBACK_ENDED",
+      adName: adName || "unknown-ad",
+      shouldUnmute: shouldUnmute === true,
+    });
+  }, fallbackDelayMs);
 }
 
 function removeControlPopup() {
@@ -361,6 +393,7 @@ function hideOverlay() {
   }
 
   teardownAdOverlayUi();
+  clearAdFallbackTimeout();
 }
 
 function getMediaElements() {
@@ -482,14 +515,27 @@ chrome.runtime.onMessage.addListener((message) => {
     adOverlayState = {
       adName: message.adName || "unknown-ad",
       endAt:
-        typeof message.durationSec === "number" &&
-        Number.isFinite(message.durationSec)
-          ? Date.now() + Math.max(0, message.durationSec) * 1000
+        typeof message.durationMs === "number" && Number.isFinite(message.durationMs)
+          ? Date.now() + Math.max(0, message.durationMs)
+          : typeof message.durationSec === "number" &&
+              Number.isFinite(message.durationSec)
+            ? Date.now() + Math.max(0, message.durationSec) * 1000
           : null,
       tickerId: null,
     };
 
     showOverlay();
+    scheduleAdFallbackEnd({
+      adName: message.adName,
+      durationMs:
+        typeof message.durationMs === "number" && Number.isFinite(message.durationMs)
+          ? Math.max(0, message.durationMs)
+          : typeof message.durationSec === "number" &&
+              Number.isFinite(message.durationSec)
+            ? Math.max(0, message.durationSec) * 1000
+            : null,
+      shouldUnmute: message.shouldUnmute === true,
+    });
 
     if (message.audioMode === "volume") {
       startAdVolumeSession(message.adVolume ?? 30);

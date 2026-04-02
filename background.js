@@ -19,8 +19,49 @@ const PRESET_OFFSET_MS = {
 
 const DEV_MODE = false;
 const EMERGENCY_EXIT_MS = 45_000;
+const MANAGED_MUTE_TABS_KEY = "managedMuteTabs";
 
 const unmuteTimeouts = new Map();
+
+function getManagedMuteTabs() {
+  return new Promise((resolve) => {
+    chrome.storage.local.get({ [MANAGED_MUTE_TABS_KEY]: {} }, (result) => {
+      const raw = result?.[MANAGED_MUTE_TABS_KEY];
+      if (!raw || typeof raw !== "object") {
+        resolve({});
+        return;
+      }
+
+      resolve(raw);
+    });
+  });
+}
+
+function setManagedMuteTabs(nextTabs) {
+  return new Promise((resolve) => {
+    chrome.storage.local.set({ [MANAGED_MUTE_TABS_KEY]: nextTabs }, () => {
+      resolve();
+    });
+  });
+}
+
+async function isTabManagedMuted(tabId) {
+  const managedTabs = await getManagedMuteTabs();
+  return managedTabs[String(tabId)] === true;
+}
+
+async function setTabManagedMuted(tabId, managed) {
+  const managedTabs = await getManagedMuteTabs();
+  const key = String(tabId);
+
+  if (managed) {
+    managedTabs[key] = true;
+  } else {
+    delete managedTabs[key];
+  }
+
+  await setManagedMuteTabs(managedTabs);
+}
 
 function normalizeSettings(raw = {}) {
   const audioMode = raw.audioMode === "volume" ? "volume" : "mute";
@@ -122,8 +163,17 @@ function notifyAdEndedAndMaybeUnmute(
     }
 
     if (updatedTab.mutedInfo?.muted) {
-      chrome.tabs.update(tabId, { muted: false });
+      chrome.tabs.update(tabId, { muted: false }, () => {
+        if (chrome.runtime.lastError) {
+          return;
+        }
+
+        void setTabManagedMuted(tabId, false);
+      });
+      return;
     }
+
+    void setTabManagedMuted(tabId, false);
   });
 }
 
@@ -181,21 +231,25 @@ async function startAdHandling({ tabs, adName, durationSec, settings }) {
     }
 
     const previousTimeout = clearAdTimeout(tabId);
-    let shouldUnmute = previousTimeout?.shouldUnmute ?? false;
+    const wasManagedMuted = await isTabManagedMuted(tabId);
+    let shouldUnmute = previousTimeout?.shouldUnmute ?? wasManagedMuted;
     const isMuted = tab.mutedInfo?.muted;
-
-    notifyTab(tabId, "AD_STARTED", {
-      adName,
-      durationSec,
-      audioMode: settings.audioMode,
-      adVolume: settings.adVolume,
-      overlayEnabled: settings.overlayEnabled,
-    });
 
     if (settings.audioMode === "mute" && !isMuted) {
       chrome.tabs.update(tabId, { muted: true });
       shouldUnmute = true;
+      await setTabManagedMuted(tabId, true);
     }
+
+    notifyTab(tabId, "AD_STARTED", {
+      adName,
+      durationSec,
+      durationMs,
+      shouldUnmute,
+      audioMode: settings.audioMode,
+      adVolume: settings.adVolume,
+      overlayEnabled: settings.overlayEnabled,
+    });
 
     const timeoutId = setTimeout(() => {
       const activeTimeout = unmuteTimeouts.get(tabId);
@@ -248,10 +302,11 @@ async function endAdHandling({ tabs, adName, endReason = "manual-end" }) {
     }
 
     const previousTimeout = clearAdTimeout(tabId);
+    const wasManagedMuted = await isTabManagedMuted(tabId);
     notifyAdEndedAndMaybeUnmute(
       tabId,
       adName || previousTimeout?.adName || "manual-end",
-      previousTimeout?.shouldUnmute ?? false,
+      previousTimeout?.shouldUnmute ?? wasManagedMuted,
       endReason,
     );
   }
@@ -283,7 +338,7 @@ chrome.storage.onChanged.addListener(async (changes) => {
   await notifyTabs("SETTINGS_UPDATED", { settings });
 });
 
-chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message?.type === "USER_GO_BACK_NOW") {
     (async () => {
       const tabs = await getActiveHotstarTabs();
@@ -316,6 +371,30 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
           message: "Failed to submit incident report.",
         });
       }
+    })();
+
+    return true;
+  }
+
+  if (message?.type === "AD_FALLBACK_ENDED") {
+    const tabId = sender?.tab?.id;
+    if (tabId == null) {
+      sendResponse({ ok: false, message: "Missing sender tab id." });
+      return false;
+    }
+
+    (async () => {
+      const previousTimeout = clearAdTimeout(tabId);
+      const wasManagedMuted = await isTabManagedMuted(tabId);
+      notifyAdEndedAndMaybeUnmute(
+        tabId,
+        message.adName || previousTimeout?.adName || "content-fallback",
+        message.shouldUnmute === true ||
+          previousTimeout?.shouldUnmute === true ||
+          wasManagedMuted,
+        "content-fallback",
+      );
+      sendResponse({ ok: true });
     })();
 
     return true;
