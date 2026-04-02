@@ -18,8 +18,8 @@ const PRESET_OFFSET_MS = {
 };
 
 const DEV_MODE = false;
-const EMERGENCY_EXIT_MS = 45_000;
 const MANAGED_MUTE_TABS_KEY = "managedMuteTabs";
+const MAX_AD_DURATION_SEC = 45;
 
 const unmuteTimeouts = new Map();
 
@@ -99,6 +99,14 @@ function getAdDurationMs(durationSec, aggressiveness) {
   return Math.max(0, baseMs + offsetMs);
 }
 
+function normalizeAdDurationSec(rawDurationSec) {
+  if (!Number.isFinite(rawDurationSec)) {
+    return null;
+  }
+
+  return Math.min(MAX_AD_DURATION_SEC, Math.max(1, rawDurationSec));
+}
+
 function notifyTab(tabId, type, payload = {}) {
   const message = { type, ...payload };
 
@@ -140,7 +148,6 @@ function clearAdTimeout(tabId) {
   }
 
   clearTimeout(existingTimeout.timeoutId);
-  clearTimeout(existingTimeout.emergencyTimeoutId);
   unmuteTimeouts.delete(tabId);
   return existingTimeout;
 }
@@ -222,7 +229,15 @@ async function getActiveHotstarTabs() {
 }
 
 async function startAdHandling({ tabs, adName, durationSec, settings }) {
-  const durationMs = getAdDurationMs(durationSec, settings.aggressiveness);
+  const normalizedDurationSec = normalizeAdDurationSec(durationSec);
+  if (normalizedDurationSec == null) {
+    return;
+  }
+
+  const durationMs = getAdDurationMs(
+    normalizedDurationSec,
+    settings.aggressiveness,
+  );
 
   for (const tab of tabs) {
     const tabId = tab.id;
@@ -243,7 +258,7 @@ async function startAdHandling({ tabs, adName, durationSec, settings }) {
 
     notifyTab(tabId, "AD_STARTED", {
       adName,
-      durationSec,
+      durationSec: normalizedDurationSec,
       durationMs,
       shouldUnmute,
       audioMode: settings.audioMode,
@@ -266,28 +281,8 @@ async function startAdHandling({ tabs, adName, durationSec, settings }) {
       );
     }, durationMs);
 
-    const emergencyTimeoutId = setTimeout(() => {
-      const activeTimeout = unmuteTimeouts.get(tabId);
-      if (
-        !activeTimeout ||
-        activeTimeout.timeoutId !== timeoutId ||
-        activeTimeout.emergencyTimeoutId !== emergencyTimeoutId
-      ) {
-        return;
-      }
-
-      unmuteTimeouts.delete(tabId);
-      notifyAdEndedAndMaybeUnmute(
-        tabId,
-        activeTimeout.adName,
-        activeTimeout.shouldUnmute,
-        "emergency-timeout",
-      );
-    }, EMERGENCY_EXIT_MS);
-
     unmuteTimeouts.set(tabId, {
       timeoutId,
-      emergencyTimeoutId,
       shouldUnmute,
       adName,
     });
@@ -418,9 +413,9 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
       const settings = await getSettings();
       const durationSecRaw = Number.parseInt(message.durationSec, 10);
-      const durationSec = Number.isNaN(durationSecRaw)
-        ? 8
-        : Math.min(300, Math.max(1, durationSecRaw));
+      const durationSec = normalizeAdDurationSec(
+        Number.isNaN(durationSecRaw) ? 8 : durationSecRaw,
+      );
       const adName = `TEST_AD_${durationSec}s`;
 
       await startAdHandling({ tabs, adName, durationSec, settings });
@@ -472,13 +467,17 @@ chrome.webRequest.onBeforeRequest.addListener(
     console.log(`Ad id: ${adName}`);
 
     if (adName) {
-      let durationSec = 10;
+      let durationSec = null;
       for (const regex of durationRegexes) {
         const match = adName.match(regex);
         if (match) {
-          durationSec = parseInt(match[1], 10);
+          durationSec = normalizeAdDurationSec(parseInt(match[1], 10));
           break;
         }
+      }
+
+      if (durationSec == null) {
+        return;
       }
 
       const settings = await getSettings();

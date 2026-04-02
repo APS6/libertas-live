@@ -56,6 +56,12 @@ function scheduleAdFallbackEnd({ adName, durationMs, shouldUnmute }) {
     adOverlayState = null;
 
     chrome.runtime.sendMessage({
+      type: "REPORT_INCIDENT",
+      adName: adName || "unknown-ad",
+      pageUrl: window.location.href,
+    });
+
+    chrome.runtime.sendMessage({
       type: "AD_FALLBACK_ENDED",
       adName: adName || "unknown-ad",
       shouldUnmute: shouldUnmute === true,
