@@ -1,6 +1,6 @@
 {
-  "name": "Libertas Live - A better IPL experience for all",
-  "version": "0.0.1",
+  "name": "Libertas Live - A better IPL experience",
+  "version": "0.0.2",
   "description": "Enhance your IPL viewing experience by replacing promotional breaks with a clean, real-time scorecard.",
   "manifest_version": 3,
   "permissions": ["webRequest", "tabs", "storage", "scripting"],
@@ -13,8 +13,8 @@
   "icons": {
     "16": "icons/icon16.png",
     "32": "icons/icon32.png",
-    "48": "icons/icon32.png",
-    "128": "icons/icon512.png"
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
   },
   "action": {
     "default_popup": "popup.html",
@@ -32,5 +32,13 @@
       "js": ["content.js"],
       "run_at": "document_start"
     }
-  ]
+  ],
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "@libertas-live",
+      "data_collection_permissions": {
+        "required": ["none"]
+      }
+    }
+  }
 }
