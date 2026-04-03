@@ -184,8 +184,9 @@ function notifyAdEndedAndMaybeUnmute(
   });
 }
 
-function buildIncidentReportPayload({ adName, pageUrl }) {
+function buildIncidentReportPayload({ incidentType, adName, pageUrl }) {
   return {
+    incidentType: incidentType || "unknown",
     adName: adName || "unknown-ad",
     pageUrl: pageUrl || "unknown-page",
     timestamp: new Date().toISOString(),
@@ -351,6 +352,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
   if (message?.type === "REPORT_INCIDENT") {
     const payload = buildIncidentReportPayload({
+      incidentType: message.incidentType,
       adName: message.adName,
       pageUrl: message.pageUrl,
     });

@@ -57,6 +57,7 @@ function scheduleAdFallbackEnd({ adName, durationMs, shouldUnmute }) {
 
     chrome.runtime.sendMessage({
       type: "REPORT_INCIDENT",
+      incidentType: "fallback-timeout",
       adName: adName || "unknown-ad",
       pageUrl: window.location.href,
     });
@@ -102,6 +103,7 @@ function removeReportPopup() {
 function reportIncident() {
   chrome.runtime.sendMessage({
     type: "REPORT_INCIDENT",
+    incidentType: "manual-report-button",
     adName: reportPopupAdName || getAdIdForDisplay(),
     pageUrl: window.location.href,
   });
