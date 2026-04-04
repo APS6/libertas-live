@@ -1,3 +1,9 @@
+/*
+Libertas Live
+Copyright (C) 2026 Anirudha Pratap Sah
+Licensed under GPL v3
+*/
+
 const OVERLAY_ID = "libertas-score-overlay";
 const IFRAME_ID = "libertas-score-iframe";
 const CONTROL_POPUP_ID = "libertas-overlay-controls";
@@ -545,12 +551,13 @@ chrome.runtime.onMessage.addListener((message) => {
     adOverlayState = {
       adName: message.adName || "unknown-ad",
       endAt:
-        typeof message.durationMs === "number" && Number.isFinite(message.durationMs)
+        typeof message.durationMs === "number" &&
+        Number.isFinite(message.durationMs)
           ? Date.now() + Math.max(0, message.durationMs)
           : typeof message.durationSec === "number" &&
               Number.isFinite(message.durationSec)
             ? Date.now() + Math.max(0, message.durationSec) * 1000
-          : null,
+            : null,
       tickerId: null,
     };
 
@@ -558,7 +565,8 @@ chrome.runtime.onMessage.addListener((message) => {
     scheduleAdFallbackEnd({
       adName: message.adName,
       durationMs:
-        typeof message.durationMs === "number" && Number.isFinite(message.durationMs)
+        typeof message.durationMs === "number" &&
+        Number.isFinite(message.durationMs)
           ? Math.max(0, message.durationMs)
           : typeof message.durationSec === "number" &&
               Number.isFinite(message.durationSec)

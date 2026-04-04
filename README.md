@@ -51,3 +51,7 @@ Click on the Libertas extension icon in your browser toolbar to open the popup. 
 - **Aggressiveness:** Fine-tune the timing offsets for break starts/ends to your preference.
 
 ![Popup Settings](images/popup.png)
+
+## License
+
+This project is licensed under the GNU General Public License v3.0. See `LICENSE` for details.

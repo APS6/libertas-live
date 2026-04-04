@@ -1,3 +1,9 @@
+/*
+Libertas Live
+Copyright (C) 2026 Anirudha Pratap Sah
+Licensed under GPL v3
+*/
+
 const durationRegexes = [
   /_VCTA_(\d{1,3})(?:_|$)/i,
   /(\d{1,3})s(?:Eng(?:lish)?|Hin(?:di)?)/i,
