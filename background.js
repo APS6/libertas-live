@@ -7,7 +7,7 @@ Licensed under GPL v3
 const durationRegexes = [
   /_VCTA_(\d{1,3})(?:_|$)/i,
   /(\d{1,3})s(?:Eng(?:lish)?|Hin(?:di)?)/i,
-  /(?:^|[_-])(?:HIN|ENG|HINDI|ENGLISH)(?:[_-])[^\d]*(\d{1,3})(?:_|$)/i,
+  /(?:^|[_-])(?:HIN|HING|ENG|HINDI|ENGLISH)(?:[_-])[^\d]*(\d{1,3})(?:_|$)/i,
 ];
 
 const DEFAULT_SETTINGS = {
