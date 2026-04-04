@@ -3,6 +3,7 @@ const IFRAME_ID = "libertas-score-iframe";
 const CONTROL_POPUP_ID = "libertas-overlay-controls";
 const REPORT_POPUP_ID = "libertas-incident-popup";
 const REPORT_POPUP_VISIBLE_MS = 5000;
+const FALLBACK_EXTRA_MS = 1200;
 const DEFAULT_SETTINGS = {
   overlayEnabled: true,
 };
@@ -48,7 +49,7 @@ function scheduleAdFallbackEnd({ adName, durationMs, shouldUnmute }) {
     return;
   }
 
-  const fallbackDelayMs = Math.max(1_000, durationMs + 5_000);
+  const fallbackDelayMs = Math.max(1_000, durationMs + FALLBACK_EXTRA_MS);
   adFallbackTimeoutId = setTimeout(() => {
     adFallbackTimeoutId = null;
     hideOverlay();
@@ -183,7 +184,10 @@ function showReportPopup(adName) {
   popup.appendChild(text);
   popup.appendChild(adId);
   popup.appendChild(actions);
-  document.documentElement.appendChild(popup);
+  const target = getOverlayMountTarget();
+  if (target) {
+    target.appendChild(popup);
+  }
 
   reportPopupTimeoutId = setTimeout(() => {
     removeReportPopup();
@@ -295,6 +299,22 @@ function mountOverlay(overlay) {
   }
 
   return true;
+}
+
+function remountReportPopup() {
+  const popup = document.getElementById(REPORT_POPUP_ID);
+  if (!popup) {
+    return;
+  }
+
+  const target = getOverlayMountTarget();
+  if (!target) {
+    return;
+  }
+
+  if (popup.parentElement !== target) {
+    target.appendChild(popup);
+  }
 }
 
 function extractScoreIdFromUrl() {
@@ -504,10 +524,12 @@ function observeFullscreenChanges() {
   const onFullscreenChange = () => {
     const overlay = document.getElementById(OVERLAY_ID);
     if (!overlay) {
+      remountReportPopup();
       return;
     }
 
     mountOverlay(overlay);
+    remountReportPopup();
   };
 
   document.addEventListener("fullscreenchange", onFullscreenChange);
