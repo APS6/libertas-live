@@ -2,16 +2,16 @@ const DEFAULT_SETTINGS = {
   audioMode: "mute",
   adVolume: 15,
   overlayEnabled: true,
-  aggressiveness: "aggressive",
+  aggressiveness: "normal",
 };
 
 const DEV_MODE = false;
 
 const PRESET_HINTS = {
   relaxed: "Ends the scorecard 100ms before the detected duration.",
-  normal: "Ends the scorecard 100ms after the detected duration.",
+  normal: "Ends the scorecard 300ms after the detected duration.",
   aggressive:
-    "Ends the scorecard 300ms after the detected duration to prevent early cutoffs.",
+    "Ends the scorecard 690ms after the detected duration to prevent early cutoffs.",
   super_aggressive:
     "Ends the scorecard 1000ms after the detected duration to completely prevent early cutoffs.",
 };

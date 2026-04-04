@@ -8,13 +8,13 @@ const DEFAULT_SETTINGS = {
   audioMode: "mute",
   adVolume: 15,
   overlayEnabled: true,
-  aggressiveness: "aggressive",
+  aggressiveness: "normal",
 };
 
 const PRESET_OFFSET_MS = {
   relaxed: -100,
-  normal: 100,
-  aggressive: 300,
+  normal: 300,
+  aggressive: 690,
   super_aggressive: 1000,
 };
 
@@ -74,7 +74,7 @@ function normalizeSettings(raw = {}) {
     "super_aggressive",
   ].includes(raw.aggressiveness)
     ? raw.aggressiveness
-    : "aggressive";
+    : "normal";
 
   return {
     audioMode,
