@@ -1,6 +1,7 @@
 const durationRegexes = [
+  /_VCTA_(\d{1,3})(?:_|$)/i,
   /(\d{1,3})s(?:Eng(?:lish)?|Hin(?:di)?)/i,
-  /(?:HIN|ENG|HINDI|ENGLISH)[^\d]*(\d{1,3})/i,
+  /(?:^|[_-])(?:HIN|ENG|HINDI|ENGLISH)(?:[_-])[^\d]*(\d{1,3})(?:_|$)/i,
 ];
 
 const DEFAULT_SETTINGS = {
@@ -19,7 +20,7 @@ const PRESET_OFFSET_MS = {
 
 const DEV_MODE = false;
 const MANAGED_MUTE_TABS_KEY = "managedMuteTabs";
-const MAX_AD_DURATION_SEC = 45;
+const MAX_AD_DURATION_SEC = 50;
 
 const unmuteTimeouts = new Map();
 
