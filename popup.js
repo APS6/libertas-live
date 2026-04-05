@@ -13,7 +13,7 @@ const PRESET_HINTS = {
   aggressive:
     "Ends the scorecard 690ms after the detected duration to prevent early cutoffs.",
   super_aggressive:
-    "Ends the scorecard 1000ms after the detected duration to completely prevent early cutoffs.",
+    "Ends the scorecard 1s after the detected duration to completely prevent early cutoffs.",
 };
 
 function sendRuntimeMessage(payload) {

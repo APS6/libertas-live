@@ -50,7 +50,10 @@ Click on the Libertas extension icon in your browser toolbar to open the popup. 
 - **Overlay:** Toggle the live scorecard overlay on or off.
 - **Aggressiveness:** Fine-tune the timing offsets for break ends to your preference. Higher aggressiveness = less chances of ads sneaking in towards the end.
 
-![Popup Settings](images/popup.png)
+<p align="center">
+  <img src="images/config-1.jpg" width="45%" alt="Configuration screen 1">
+  <img src="images/config-2.jpg" width="45%" alt="Configuration screen 2">
+</p>
 
 ## License
 
