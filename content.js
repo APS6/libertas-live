@@ -395,6 +395,13 @@ function ensureOverlay() {
     return { overlay: null, iframe: null };
   }
 
+  if (iframe) {
+    const scoreUrl = getScoreUrl();
+    if (iframe.src !== scoreUrl) {
+      iframe.src = scoreUrl;
+    }
+  }
+
   mountOverlay(overlay);
 
   return { overlay, iframe };
@@ -524,6 +531,15 @@ function observeRouteChanges() {
   };
 
   window.addEventListener("popstate", onRouteChange);
+
+  window.addEventListener("pageshow", (event) => {
+    if (!event.persisted) {
+      return;
+    }
+
+    lastHref = "";
+    onRouteChange();
+  });
 }
 
 function observeFullscreenChanges() {

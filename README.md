@@ -33,7 +33,6 @@ Libertas Live can also be installed manually from source:
 1. **Clone the repository:**
    ```bash
    git clone https://github.com/aps6/libertas-live.git
-   cd libertas
    ```
 
 2. **Load the extension in Chrome:**
