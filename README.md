@@ -3,7 +3,7 @@
 
 **A better live IPL viewing experience for all.**
 
-**[⬇️ Install for Chrome](https://chromewebstore.google.com/detail/libertas-live-a-better-ip/kohlnbhmgcnohpenglfgpmpfbihfbeif)** &nbsp;|&nbsp; **[⬇️ Install for Firefox](https://addons.mozilla.org/en-US/firefox/addon/libertas-live/)** (pending approval)
+**[⬇️ Install for Chrome](https://chromewebstore.google.com/detail/libertas-live-a-better-ip/kohlnbhmgcnohpenglfgpmpfbihfbeif)** &nbsp;|&nbsp; **[⬇️ Install for Firefox](https://addons.mozilla.org/en-US/firefox/addon/libertas-live/)**
 
 Libertas Live is a browser extension that enhances your IPL viewing experience on Hotstar by automatically detecting promotional breaks, managing audio, and replacing visual distractions with a clean, real-time scorecard overlay. Never miss a ball of the match, but skip the repetitive interruptions!
 
@@ -24,7 +24,7 @@ Libertas Live is a browser extension that enhances your IPL viewing experience o
 
 The easiest way to install Libertas Live is directly from your browser's extension store:
 - **[Chrome Web Store](https://chromewebstore.google.com/detail/libertas-live-a-better-ip/kohlnbhmgcnohpenglfgpmpfbihfbeif)**
-- **[Firefox Add-ons](https://addons.mozilla.org/en-US/firefox/addon/libertas-live/)** (pending approval)
+- **[Firefox Add-ons](https://addons.mozilla.org/en-US/firefox/addon/libertas-live/)**
 
 ### Manual Installation (For Developers)
 
