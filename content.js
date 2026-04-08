@@ -9,7 +9,6 @@ const IFRAME_ID = "libertas-score-iframe";
 const CONTROL_POPUP_ID = "libertas-overlay-controls";
 const REPORT_POPUP_ID = "libertas-incident-popup";
 const REPORT_POPUP_VISIBLE_MS = 5000;
-const FALLBACK_EXTRA_MS = 1200;
 const DEFAULT_SETTINGS = {
   overlayEnabled: true,
 };
@@ -19,7 +18,7 @@ let adAudioSession = null;
 let adOverlayState = null;
 let reportPopupTimeoutId = null;
 let reportPopupAdName = "unknown-ad";
-let adFallbackTimeoutId = null;
+let adEndTimeoutId = null;
 
 function formatSecondsRemaining(secondsRemaining) {
   const safeSeconds = Math.max(0, Math.ceil(secondsRemaining));
@@ -39,42 +38,32 @@ function clearAdOverlayTicker() {
   adOverlayState.tickerId = null;
 }
 
-function clearAdFallbackTimeout() {
-  if (!adFallbackTimeoutId) {
+function clearAdEndTimeout() {
+  if (!adEndTimeoutId) {
     return;
   }
 
-  clearTimeout(adFallbackTimeoutId);
-  adFallbackTimeoutId = null;
+  clearTimeout(adEndTimeoutId);
+  adEndTimeoutId = null;
 }
 
-function scheduleAdFallbackEnd({ adName, durationMs, shouldUnmute }) {
-  clearAdFallbackTimeout();
+function scheduleAdEndFromContent({ durationMs }) {
+  clearAdEndTimeout();
 
   if (!Number.isFinite(durationMs) || durationMs < 0) {
     return;
   }
 
-  const fallbackDelayMs = Math.max(1_000, durationMs + FALLBACK_EXTRA_MS);
-  adFallbackTimeoutId = setTimeout(() => {
-    adFallbackTimeoutId = null;
+  adEndTimeoutId = setTimeout(() => {
+    adEndTimeoutId = null;
     hideOverlay();
     endAdVolumeSession();
     adOverlayState = null;
 
     chrome.runtime.sendMessage({
-      type: "REPORT_INCIDENT",
-      incidentType: "fallback-timeout",
-      adName: adName || "unknown-ad",
-      pageUrl: window.location.href,
+      type: "AD_ENDED_BY_CONTENT",
     });
-
-    chrome.runtime.sendMessage({
-      type: "AD_FALLBACK_ENDED",
-      adName: adName || "unknown-ad",
-      shouldUnmute: shouldUnmute === true,
-    });
-  }, fallbackDelayMs);
+  }, durationMs);
 }
 
 function removeControlPopup() {
@@ -119,8 +108,12 @@ function reportIncident() {
 }
 
 function goBackNow() {
+  const lastAdName = adOverlayState?.adName || "unknown-ad";
+  clearAdEndTimeout();
   hideOverlay();
   endAdVolumeSession();
+  adOverlayState = null;
+  showReportPopup(lastAdName);
 
   chrome.runtime.sendMessage({
     type: "USER_GO_BACK_NOW",
@@ -434,7 +427,6 @@ function hideOverlay() {
   }
 
   teardownAdOverlayUi();
-  clearAdFallbackTimeout();
 }
 
 function getMediaElements() {
@@ -567,28 +559,18 @@ chrome.runtime.onMessage.addListener((message) => {
     adOverlayState = {
       adName: message.adName || "unknown-ad",
       endAt:
-        typeof message.durationMs === "number" &&
-        Number.isFinite(message.durationMs)
+        typeof message.durationMs === "number" && Number.isFinite(message.durationMs)
           ? Date.now() + Math.max(0, message.durationMs)
-          : typeof message.durationSec === "number" &&
-              Number.isFinite(message.durationSec)
-            ? Date.now() + Math.max(0, message.durationSec) * 1000
-            : null,
+          : null,
       tickerId: null,
     };
 
     showOverlay();
-    scheduleAdFallbackEnd({
-      adName: message.adName,
+    scheduleAdEndFromContent({
       durationMs:
-        typeof message.durationMs === "number" &&
-        Number.isFinite(message.durationMs)
+        typeof message.durationMs === "number" && Number.isFinite(message.durationMs)
           ? Math.max(0, message.durationMs)
-          : typeof message.durationSec === "number" &&
-              Number.isFinite(message.durationSec)
-            ? Math.max(0, message.durationSec) * 1000
-            : null,
-      shouldUnmute: message.shouldUnmute === true,
+          : null,
     });
 
     if (message.audioMode === "volume") {
@@ -598,14 +580,12 @@ chrome.runtime.onMessage.addListener((message) => {
 
   if (message?.type === "AD_ENDED") {
     const lastAdName = adOverlayState?.adName || "unknown-ad";
+    clearAdEndTimeout();
     hideOverlay();
     endAdVolumeSession();
     adOverlayState = null;
 
-    if (
-      message.endReason === "manual-end" ||
-      message.endReason === "emergency-timeout"
-    ) {
+    if (message.endReason === "manual-end") {
       showReportPopup(lastAdName);
     }
   }

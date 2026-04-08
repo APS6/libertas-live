@@ -28,8 +28,6 @@ const DEV_MODE = false;
 const MANAGED_MUTE_TABS_KEY = "managedMuteTabs";
 const MAX_AD_DURATION_SEC = 50;
 
-const unmuteTimeouts = new Map();
-
 function getManagedMuteTabs() {
   return new Promise((resolve) => {
     chrome.storage.local.get({ [MANAGED_MUTE_TABS_KEY]: {} }, (result) => {
@@ -148,17 +146,6 @@ function notifyTab(tabId, type, payload = {}) {
   });
 }
 
-function clearAdTimeout(tabId) {
-  const existingTimeout = unmuteTimeouts.get(tabId);
-  if (!existingTimeout) {
-    return null;
-  }
-
-  clearTimeout(existingTimeout.timeoutId);
-  unmuteTimeouts.delete(tabId);
-  return existingTimeout;
-}
-
 function notifyAdEndedAndMaybeUnmute(
   tabId,
   adName,
@@ -167,6 +154,10 @@ function notifyAdEndedAndMaybeUnmute(
 ) {
   notifyTab(tabId, "AD_ENDED", { adName, endReason });
 
+  maybeUnmuteTab(tabId, shouldUnmute);
+}
+
+function maybeUnmuteTab(tabId, shouldUnmute) {
   if (!shouldUnmute) {
     return;
   }
@@ -221,31 +212,12 @@ async function getHotstarTabs() {
   return chrome.tabs.query({ url: "*://*.hotstar.com/*" });
 }
 
-async function getActiveHotstarTabs() {
-  const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
-  return tabs.filter((tab) => {
-    if (!tab.url) {
-      return false;
-    }
-
-    try {
-      return new URL(tab.url).hostname.endsWith("hotstar.com");
-    } catch {
-      return false;
-    }
-  });
-}
-
 async function startAdHandling({ tabs, adName, durationSec, settings }) {
-  const normalizedDurationSec = normalizeAdDurationSec(durationSec);
-  if (normalizedDurationSec == null) {
+  if (durationSec == null) {
     return;
   }
 
-  const durationMs = getAdDurationMs(
-    normalizedDurationSec,
-    settings.aggressiveness,
-  );
+  const durationMs = getAdDurationMs(durationSec, settings.aggressiveness);
 
   for (const tab of tabs) {
     const tabId = tab.id;
@@ -253,46 +225,19 @@ async function startAdHandling({ tabs, adName, durationSec, settings }) {
       continue;
     }
 
-    const previousTimeout = clearAdTimeout(tabId);
-    const wasManagedMuted = await isTabManagedMuted(tabId);
-    let shouldUnmute = previousTimeout?.shouldUnmute ?? wasManagedMuted;
     const isMuted = tab.mutedInfo?.muted;
 
     if (settings.audioMode === "mute" && !isMuted) {
       chrome.tabs.update(tabId, { muted: true });
-      shouldUnmute = true;
       await setTabManagedMuted(tabId, true);
     }
 
     notifyTab(tabId, "AD_STARTED", {
       adName,
-      durationSec: normalizedDurationSec,
       durationMs,
-      shouldUnmute,
       audioMode: settings.audioMode,
       adVolume: settings.adVolume,
       overlayEnabled: settings.overlayEnabled,
-    });
-
-    const timeoutId = setTimeout(() => {
-      const activeTimeout = unmuteTimeouts.get(tabId);
-      if (!activeTimeout || activeTimeout.timeoutId !== timeoutId) {
-        return;
-      }
-
-      unmuteTimeouts.delete(tabId);
-      notifyAdEndedAndMaybeUnmute(
-        tabId,
-        activeTimeout.adName,
-        activeTimeout.shouldUnmute,
-        "duration-complete",
-      );
-    }, durationMs);
-
-    unmuteTimeouts.set(tabId, {
-      timeoutId,
-      shouldUnmute,
-      adName,
     });
   }
 }
@@ -304,12 +249,11 @@ async function endAdHandling({ tabs, adName, endReason = "manual-end" }) {
       continue;
     }
 
-    const previousTimeout = clearAdTimeout(tabId);
     const wasManagedMuted = await isTabManagedMuted(tabId);
     notifyAdEndedAndMaybeUnmute(
       tabId,
-      adName || previousTimeout?.adName || "manual-end",
-      previousTimeout?.shouldUnmute ?? wasManagedMuted,
+      adName || "manual-end",
+      wasManagedMuted,
       endReason,
     );
   }
@@ -344,13 +288,14 @@ chrome.storage.onChanged.addListener(async (changes) => {
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message?.type === "USER_GO_BACK_NOW") {
     (async () => {
-      const tabs = await getActiveHotstarTabs();
-      if (tabs.length === 0) {
-        sendResponse({ ok: false, message: "No active Hotstar tab found." });
+      const tabId = sender?.tab?.id;
+      if (tabId == null) {
+        sendResponse({ ok: false, message: "Missing sender tab id." });
         return;
       }
 
-      await endAdHandling({ tabs, endReason: "manual-end" });
+      const wasManagedMuted = await isTabManagedMuted(tabId);
+      maybeUnmuteTab(tabId, wasManagedMuted);
       sendResponse({ ok: true });
     })();
 
@@ -380,7 +325,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   }
 
-  if (message?.type === "AD_FALLBACK_ENDED") {
+  if (message?.type === "AD_ENDED_BY_CONTENT") {
     const tabId = sender?.tab?.id;
     if (tabId == null) {
       sendResponse({ ok: false, message: "Missing sender tab id." });
@@ -388,16 +333,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     }
 
     (async () => {
-      const previousTimeout = clearAdTimeout(tabId);
       const wasManagedMuted = await isTabManagedMuted(tabId);
-      notifyAdEndedAndMaybeUnmute(
-        tabId,
-        message.adName || previousTimeout?.adName || "content-fallback",
-        message.shouldUnmute === true ||
-          previousTimeout?.shouldUnmute === true ||
-          wasManagedMuted,
-        "content-fallback",
-      );
+      maybeUnmuteTab(tabId, wasManagedMuted);
       sendResponse({ ok: true });
     })();
 
@@ -411,7 +348,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     }
 
     (async () => {
-      const tabs = await getActiveHotstarTabs();
+      const tabs = await getHotstarTabs();
       if (tabs.length === 0) {
         sendResponse({
           ok: false,
@@ -444,7 +381,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     }
 
     (async () => {
-      const tabs = await getActiveHotstarTabs();
+      const tabs = await getHotstarTabs();
       if (tabs.length === 0) {
         sendResponse({
           ok: false,
