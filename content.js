@@ -9,6 +9,7 @@ const IFRAME_ID = "libertas-score-iframe";
 const CONTROL_POPUP_ID = "libertas-overlay-controls";
 const REPORT_POPUP_ID = "libertas-incident-popup";
 const REPORT_POPUP_VISIBLE_MS = 5000;
+const VIEWER_ID_STORAGE_KEY = "viewerId";
 const DEFAULT_SETTINGS = {
   overlayEnabled: true,
 };
@@ -19,6 +20,38 @@ let adOverlayState = null;
 let reportPopupTimeoutId = null;
 let reportPopupAdName = "unknown-ad";
 let adEndTimeoutId = null;
+let viewerIdPromise = null;
+
+function generateViewerId() {
+  if (typeof crypto?.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+
+  return `${Date.now().toString(16)}-${Math.random().toString(16).slice(2)}`;
+}
+
+function getOrCreateViewerId() {
+  if (viewerIdPromise) {
+    return viewerIdPromise;
+  }
+
+  viewerIdPromise = new Promise((resolve) => {
+    chrome.storage.local.get({ [VIEWER_ID_STORAGE_KEY]: null }, (result) => {
+      const existingId = result?.[VIEWER_ID_STORAGE_KEY];
+      if (typeof existingId === "string" && existingId.length > 0) {
+        resolve(existingId);
+        return;
+      }
+
+      const nextId = generateViewerId();
+      chrome.storage.local.set({ [VIEWER_ID_STORAGE_KEY]: nextId }, () => {
+        resolve(nextId);
+      });
+    });
+  });
+
+  return viewerIdPromise;
+}
 
 function formatSecondsRemaining(secondsRemaining) {
   const safeSeconds = Math.max(0, Math.ceil(secondsRemaining));
@@ -335,9 +368,21 @@ function isHotstarSportsPage() {
   return /\/in\/sports\//i.test(window.location.pathname);
 }
 
-function getScoreUrl() {
+async function getScoreUrl() {
   const scoreId = encodeURIComponent(extractScoreIdFromUrl());
-  return `https://score.anirudhasah.com/score/${scoreId}`;
+  const viewerId = encodeURIComponent(await getOrCreateViewerId());
+  return `https://score.anirudhasah.com/score/${scoreId}?viewer=${viewerId}`;
+}
+
+async function syncIframeScoreUrl(iframe) {
+  if (!iframe) {
+    return;
+  }
+
+  const scoreUrl = await getScoreUrl();
+  if (iframe.src !== scoreUrl) {
+    iframe.src = scoreUrl;
+  }
 }
 
 function ensureOverlay() {
@@ -371,7 +416,7 @@ function ensureOverlay() {
       "display: block",
       "background: #000",
     ].join(";");
-    iframe.src = getScoreUrl();
+    void syncIframeScoreUrl(iframe);
 
     overlay.appendChild(iframe);
 
@@ -389,10 +434,7 @@ function ensureOverlay() {
   }
 
   if (iframe) {
-    const scoreUrl = getScoreUrl();
-    if (iframe.src !== scoreUrl) {
-      iframe.src = scoreUrl;
-    }
+    void syncIframeScoreUrl(iframe);
   }
 
   mountOverlay(overlay);
@@ -504,7 +546,7 @@ function observeRouteChanges() {
     lastHref = window.location.href;
     const { iframe } = ensureOverlay();
     if (iframe) {
-      iframe.src = getScoreUrl();
+      void syncIframeScoreUrl(iframe);
     }
   };
 
@@ -596,5 +638,6 @@ chrome.runtime.onMessage.addListener((message) => {
 });
 
 loadSettings();
+void getOrCreateViewerId();
 observeRouteChanges();
 observeFullscreenChanges();

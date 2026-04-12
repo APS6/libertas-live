@@ -18,7 +18,7 @@ Libertas Live is a browser extension that enhances your IPL viewing experience o
 - **Smart Audio Control:** Choose to completely mute the tab during these segments or just lower the volume to a comfortable level.
 - **Customizable Timing:** Adjust the synchronization aggressiveness (Relaxed, Normal, Aggressive, Super Aggressive) according to your tolerance level.
 
-![Scorecard Overlay](images/scorecard.png)
+![Scorecard Overlay](images/scorecard.jpg)
 
 ## 🚀 Installation
 
