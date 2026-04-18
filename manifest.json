@@ -1,10 +1,13 @@
 {
   "name": "Libertas Live - A better IPL experience",
-  "version": "1.1.1",
+  "version": "1.2.0",
   "description": "Enhance your IPL viewing experience by replacing promotional breaks with a clean, real-time scorecard.",
   "manifest_version": 3,
   "permissions": ["webRequest", "tabs", "storage", "scripting"],
-  "host_permissions": ["*://*.hotstar.com/*"],
+  "host_permissions": [
+    "*://*.hotstar.com/*",
+    "https://score.anirudhasah.com/*"
+  ],
   "background": {
     "service_worker": "background.js",
     "scripts": ["background.js"],

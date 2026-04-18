@@ -25,6 +25,9 @@ const PRESET_OFFSET_MS = {
 };
 
 const DEV_MODE = false;
+const SCORE_SERVER_ORIGIN = "https://score.anirudhasah.com";
+const SCORE_SERVER_RETRY_INTERVAL_MS = 5 * 60 * 1000;
+const SCORE_SERVER_DOWN_MESSAGE_ID = "libertas-score-down-message";
 const MANAGED_MUTE_TABS_KEY = "managedMuteTabs";
 const MAX_AD_DURATION_SEC = 50;
 
@@ -192,16 +195,13 @@ function buildIncidentReportPayload({ incidentType, adName, pageUrl }) {
 }
 
 async function submitIncidentReport(payload) {
-  const response = await fetch(
-    "https://score.anirudhasah.com/api/incident-reports",
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(payload),
+  const response = await fetch(`${SCORE_SERVER_ORIGIN}/api/incident-reports`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
     },
-  );
+    body: JSON.stringify(payload),
+  });
 
   if (!response.ok) {
     throw new Error(`Incident report failed with status ${response.status}`);
@@ -210,6 +210,19 @@ async function submitIncidentReport(payload) {
 
 async function getHotstarTabs() {
   return chrome.tabs.query({ url: "*://*.hotstar.com/*" });
+}
+
+async function checkScoreServerUp() {
+  try {
+    const response = await fetch(`${SCORE_SERVER_ORIGIN}/up`, {
+      method: "GET",
+      cache: "no-store",
+    });
+
+    return response.ok;
+  } catch {
+    return false;
+  }
 }
 
 async function startAdHandling({ tabs, adName, durationSec, settings }) {
@@ -396,6 +409,15 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         endReason: "test-manual-end",
       });
       sendResponse({ ok: true, message: "Simulated ad ended." });
+    })();
+
+    return true;
+  }
+
+  if (message?.type === "CHECK_SCORE_SERVER_UP") {
+    (async () => {
+      const isUp = await checkScoreServerUp();
+      sendResponse({ ok: true, isUp });
     })();
 
     return true;

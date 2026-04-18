@@ -10,6 +10,9 @@ const CONTROL_POPUP_ID = "libertas-overlay-controls";
 const REPORT_POPUP_ID = "libertas-incident-popup";
 const REPORT_POPUP_VISIBLE_MS = 5000;
 const VIEWER_ID_STORAGE_KEY = "viewerId";
+const SCORE_SERVER_ORIGIN = "https://score.anirudhasah.com";
+const SCORE_SERVER_RETRY_INTERVAL_MS = 5 * 60 * 1000;
+const SCORE_SERVER_DOWN_MESSAGE_ID = "libertas-score-down-message";
 const DEFAULT_SETTINGS = {
   overlayEnabled: true,
 };
@@ -21,6 +24,8 @@ let reportPopupTimeoutId = null;
 let reportPopupAdName = "unknown-ad";
 let adEndTimeoutId = null;
 let viewerIdPromise = null;
+let scoreServerRetryIntervalId = null;
+let scoreServerAvailabilityCheckPromise = null;
 
 function generateViewerId() {
   if (typeof crypto?.randomUUID === "function") {
@@ -371,7 +376,7 @@ function isHotstarSportsPage() {
 async function getScoreUrl() {
   const scoreId = encodeURIComponent(extractScoreIdFromUrl());
   const viewerId = encodeURIComponent(await getOrCreateViewerId());
-  return `https://score.anirudhasah.com/score/${scoreId}?viewer=${viewerId}`;
+  return `${SCORE_SERVER_ORIGIN}/score/${scoreId}?viewer=${viewerId}`;
 }
 
 async function syncIframeScoreUrl(iframe) {
@@ -385,8 +390,121 @@ async function syncIframeScoreUrl(iframe) {
   }
 }
 
+function stopScoreServerRetryChecks() {
+  if (!scoreServerRetryIntervalId) {
+    return;
+  }
+
+  clearInterval(scoreServerRetryIntervalId);
+  scoreServerRetryIntervalId = null;
+}
+
+function startScoreServerRetryChecks(iframe) {
+  if (scoreServerRetryIntervalId) {
+    return;
+  }
+
+  scoreServerRetryIntervalId = setInterval(() => {
+    void syncIframeAvailability(iframe);
+  }, SCORE_SERVER_RETRY_INTERVAL_MS);
+}
+
+function ensureScoreServerDownMessage(overlay) {
+  let message = document.getElementById(SCORE_SERVER_DOWN_MESSAGE_ID);
+  if (message) {
+    return message;
+  }
+
+  message = document.createElement("div");
+  message.id = SCORE_SERVER_DOWN_MESSAGE_ID;
+  message.style.cssText = [
+    "position: absolute",
+    "inset: 0",
+    "display: none",
+    "align-items: center",
+    "justify-content: center",
+    "text-align: center",
+    "padding: 24px",
+    "box-sizing: border-box",
+    "color: #fff",
+    "font-size: 22px",
+    "font-weight: 600",
+    "font-family: system-ui, -apple-system, Segoe UI, sans-serif",
+    "line-height: 1.4",
+    "background: #000",
+  ].join(";");
+  message.textContent =
+    "Score server is offline but we'll hopefully be back soon!";
+  overlay.appendChild(message);
+  return message;
+}
+
+function setScoreServerAvailabilityUi({ overlay, iframe, isUp }) {
+  if (!overlay || !iframe) {
+    return;
+  }
+
+  const downMessage = ensureScoreServerDownMessage(overlay);
+  if (isUp) {
+    iframe.style.display = "block";
+    downMessage.style.display = "none";
+    return;
+  }
+
+  iframe.style.display = "none";
+  downMessage.style.display = "flex";
+}
+
+function checkScoreServerUp() {
+  return new Promise((resolve) => {
+    chrome.runtime.sendMessage(
+      { type: "CHECK_SCORE_SERVER_UP" },
+      (response) => {
+        if (chrome.runtime.lastError) {
+          resolve(false);
+          return;
+        }
+
+        resolve(response?.isUp === true);
+      },
+    );
+  });
+}
+
+async function syncIframeAvailability(iframe) {
+  if (!iframe) {
+    return;
+  }
+
+  if (scoreServerAvailabilityCheckPromise) {
+    await scoreServerAvailabilityCheckPromise;
+    return;
+  }
+
+  scoreServerAvailabilityCheckPromise = (async () => {
+    const isUp = await checkScoreServerUp();
+    const overlay = document.getElementById(OVERLAY_ID);
+    setScoreServerAvailabilityUi({ overlay, iframe, isUp });
+
+    if (isUp) {
+      stopScoreServerRetryChecks();
+      await syncIframeScoreUrl(iframe);
+      return;
+    }
+
+    startScoreServerRetryChecks(iframe);
+  })();
+
+  try {
+    await scoreServerAvailabilityCheckPromise;
+  } finally {
+    scoreServerAvailabilityCheckPromise = null;
+  }
+}
+
 function ensureOverlay() {
   if (!isHotstarSportsPage()) {
+    stopScoreServerRetryChecks();
     return { overlay: null, iframe: null };
   }
 
@@ -416,7 +534,7 @@ function ensureOverlay() {
       "display: block",
       "background: #000",
     ].join(";");
-    void syncIframeScoreUrl(iframe);
+    void syncIframeAvailability(iframe);
 
     overlay.appendChild(iframe);
 
@@ -434,7 +552,7 @@ function ensureOverlay() {
   }
 
   if (iframe) {
-    void syncIframeScoreUrl(iframe);
+    void syncIframeAvailability(iframe);
   }
 
   mountOverlay(overlay);
@@ -546,7 +664,7 @@ function observeRouteChanges() {
     lastHref = window.location.href;
     const { iframe } = ensureOverlay();
     if (iframe) {
-      void syncIframeScoreUrl(iframe);
+      void syncIframeAvailability(iframe);
     }
   };
 
@@ -601,7 +719,8 @@ chrome.runtime.onMessage.addListener((message) => {
     adOverlayState = {
       adName: message.adName || "unknown-ad",
       endAt:
-        typeof message.durationMs === "number" && Number.isFinite(message.durationMs)
+        typeof message.durationMs === "number" &&
+        Number.isFinite(message.durationMs)
           ? Date.now() + Math.max(0, message.durationMs)
           : null,
       tickerId: null,
@@ -610,7 +729,8 @@ chrome.runtime.onMessage.addListener((message) => {
     showOverlay();
     scheduleAdEndFromContent({
       durationMs:
-        typeof message.durationMs === "number" && Number.isFinite(message.durationMs)
+        typeof message.durationMs === "number" &&
+        Number.isFinite(message.durationMs)
           ? Math.max(0, message.durationMs)
           : null,
     });
