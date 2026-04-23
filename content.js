@@ -11,7 +11,8 @@ const REPORT_POPUP_ID = "libertas-incident-popup";
 const REPORT_POPUP_VISIBLE_MS = 5000;
 const VIEWER_ID_STORAGE_KEY = "viewerId";
 const SCORE_SERVER_ORIGIN = "https://score.anirudhasah.com";
-const SCORE_SERVER_RETRY_INTERVAL_MS = 5 * 60 * 1000;
+const SCORE_SERVER_UP_CHECK_INTERVAL_MS = 5 * 60 * 1000;
+const SCORE_SERVER_DOWN_CHECK_INTERVAL_MS = 2 * 60 * 1000;
 const SCORE_SERVER_DOWN_MESSAGE_ID = "libertas-score-down-message";
 const DEFAULT_SETTINGS = {
   overlayEnabled: true,
@@ -24,8 +25,12 @@ let reportPopupTimeoutId = null;
 let reportPopupAdName = "unknown-ad";
 let adEndTimeoutId = null;
 let viewerIdPromise = null;
-let scoreServerRetryIntervalId = null;
+let scoreServerCheckIntervalId = null;
+let scoreServerCheckIntervalMs = null;
 let scoreServerAvailabilityCheckPromise = null;
+let scoreServerInitialCheckCompleted = false;
+let scoreServerIsUp = null;
+let scoreServerCheckedForScoreId = null;
 
 function generateViewerId() {
   if (typeof crypto?.randomUUID === "function") {
@@ -379,34 +384,51 @@ async function getScoreUrl() {
   return `${SCORE_SERVER_ORIGIN}/score/${scoreId}?viewer=${viewerId}`;
 }
 
-async function syncIframeScoreUrl(iframe) {
+async function syncIframeScoreUrl(iframe, { forceReload = false } = {}) {
   if (!iframe) {
     return;
   }
 
   const scoreUrl = await getScoreUrl();
-  if (iframe.src !== scoreUrl) {
+  if (forceReload || iframe.src !== scoreUrl) {
     iframe.src = scoreUrl;
   }
 }
 
-function stopScoreServerRetryChecks() {
-  if (!scoreServerRetryIntervalId) {
+function stopScoreServerChecks() {
+  if (!scoreServerCheckIntervalId) {
     return;
   }
 
-  clearInterval(scoreServerRetryIntervalId);
-  scoreServerRetryIntervalId = null;
+  clearInterval(scoreServerCheckIntervalId);
+  scoreServerCheckIntervalId = null;
+  scoreServerCheckIntervalMs = null;
 }
 
-function startScoreServerRetryChecks(iframe) {
-  if (scoreServerRetryIntervalId) {
+function getScoreServerCheckIntervalMs() {
+  return scoreServerIsUp === false
+    ? SCORE_SERVER_DOWN_CHECK_INTERVAL_MS
+    : SCORE_SERVER_UP_CHECK_INTERVAL_MS;
+}
+
+function ensureScoreServerChecks(iframe) {
+  const nextIntervalMs = getScoreServerCheckIntervalMs();
+
+  if (
+    scoreServerCheckIntervalId &&
+    scoreServerCheckIntervalMs === nextIntervalMs
+  ) {
     return;
   }
 
-  scoreServerRetryIntervalId = setInterval(() => {
-    void syncIframeAvailability(iframe);
-  }, SCORE_SERVER_RETRY_INTERVAL_MS);
+  if (scoreServerCheckIntervalId) {
+    clearInterval(scoreServerCheckIntervalId);
+  }
+
+  scoreServerCheckIntervalMs = nextIntervalMs;
+  scoreServerCheckIntervalId = setInterval(() => {
+    void syncIframeAvailability(iframe, { forceCheck: true });
+  }, nextIntervalMs);
 }
 
 function ensureScoreServerDownMessage(overlay) {
@@ -471,8 +493,36 @@ function checkScoreServerUp() {
   });
 }
 
-async function syncIframeAvailability(iframe) {
+function syncIframeForCurrentAvailability(
+  iframe,
+  { forceReload = false } = {},
+) {
+  const overlay = document.getElementById(OVERLAY_ID);
+  if (scoreServerIsUp === false) {
+    setScoreServerAvailabilityUi({ overlay, iframe, isUp: false });
+    ensureScoreServerChecks(iframe);
+    return;
+  }
+
+  setScoreServerAvailabilityUi({ overlay, iframe, isUp: true });
+  ensureScoreServerChecks(iframe);
+  void syncIframeScoreUrl(iframe, { forceReload });
+}
+
+async function syncIframeAvailability(iframe, { forceCheck = false } = {}) {
   if (!iframe) {
+    return;
+  }
+
+  const currentScoreId = extractScoreIdFromUrl();
+  if (scoreServerCheckedForScoreId !== currentScoreId) {
+    scoreServerCheckedForScoreId = currentScoreId;
+    scoreServerInitialCheckCompleted = false;
+    scoreServerIsUp = null;
+  }
+
+  if (scoreServerInitialCheckCompleted && !forceCheck) {
+    syncIframeForCurrentAvailability(iframe);
     return;
   }
 
@@ -482,17 +532,13 @@ async function syncIframeAvailability(iframe) {
   }
 
   scoreServerAvailabilityCheckPromise = (async () => {
+    const wasUp = scoreServerIsUp === true;
     const isUp = await checkScoreServerUp();
-    const overlay = document.getElementById(OVERLAY_ID);
-    setScoreServerAvailabilityUi({ overlay, iframe, isUp });
+    scoreServerInitialCheckCompleted = true;
+    scoreServerIsUp = isUp;
+    const becameUp = !wasUp && isUp;
 
-    if (isUp) {
-      stopScoreServerRetryChecks();
-      await syncIframeScoreUrl(iframe);
-      return;
-    }
-
-    startScoreServerRetryChecks(iframe);
+    syncIframeForCurrentAvailability(iframe, { forceReload: becameUp });
   })();
 
   try {
@@ -504,7 +550,7 @@ async function syncIframeAvailability(iframe) {
 
 function ensureOverlay() {
   if (!isHotstarSportsPage()) {
-    stopScoreServerRetryChecks();
+    stopScoreServerChecks();
     return { overlay: null, iframe: null };
   }
 

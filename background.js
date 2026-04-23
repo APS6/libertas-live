@@ -26,8 +26,6 @@ const PRESET_OFFSET_MS = {
 
 const DEV_MODE = false;
 const SCORE_SERVER_ORIGIN = "https://score.anirudhasah.com";
-const SCORE_SERVER_RETRY_INTERVAL_MS = 5 * 60 * 1000;
-const SCORE_SERVER_DOWN_MESSAGE_ID = "libertas-score-down-message";
 const MANAGED_MUTE_TABS_KEY = "managedMuteTabs";
 const MAX_AD_DURATION_SEC = 50;
 
