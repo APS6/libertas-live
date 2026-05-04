@@ -183,28 +183,6 @@ function maybeUnmuteTab(tabId, shouldUnmute) {
   });
 }
 
-function buildIncidentReportPayload({ incidentType, adName, pageUrl }) {
-  return {
-    incidentType: incidentType || "unknown",
-    adName: adName || "unknown-ad",
-    pageUrl: pageUrl || "unknown-page",
-    timestamp: new Date().toISOString(),
-  };
-}
-
-async function submitIncidentReport(payload) {
-  const response = await fetch(`${SCORE_SERVER_ORIGIN}/api/incident-reports`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(payload),
-  });
-
-  if (!response.ok) {
-    throw new Error(`Incident report failed with status ${response.status}`);
-  }
-}
 
 async function getHotstarTabs() {
   return chrome.tabs.query({ url: "*://*.hotstar.com/*" });
@@ -308,29 +286,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       const wasManagedMuted = await isTabManagedMuted(tabId);
       maybeUnmuteTab(tabId, wasManagedMuted);
       sendResponse({ ok: true });
-    })();
-
-    return true;
-  }
-
-  if (message?.type === "REPORT_INCIDENT") {
-    const payload = buildIncidentReportPayload({
-      incidentType: message.incidentType,
-      adName: message.adName,
-      pageUrl: message.pageUrl,
-    });
-
-    (async () => {
-      try {
-        await submitIncidentReport(payload);
-        sendResponse({ ok: true });
-      } catch (error) {
-        console.error("Failed to submit incident report", error);
-        sendResponse({
-          ok: false,
-          message: "Failed to submit incident report.",
-        });
-      }
     })();
 
     return true;

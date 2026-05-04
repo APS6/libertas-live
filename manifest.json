@@ -1,6 +1,6 @@
 {
   "name": "Libertas Live - A better IPL experience",
-  "version": "1.2.1",
+  "version": "1.2.2",
   "description": "Enhance your IPL viewing experience by replacing promotional breaks with a clean, real-time scorecard.",
   "manifest_version": 3,
   "permissions": ["webRequest", "tabs", "storage", "scripting"],

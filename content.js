@@ -7,8 +7,6 @@ Licensed under GPL v3
 const OVERLAY_ID = "libertas-score-overlay";
 const IFRAME_ID = "libertas-score-iframe";
 const CONTROL_POPUP_ID = "libertas-overlay-controls";
-const REPORT_POPUP_ID = "libertas-incident-popup";
-const REPORT_POPUP_VISIBLE_MS = 5000;
 const VIEWER_ID_STORAGE_KEY = "viewerId";
 const SCORE_SERVER_ORIGIN = "https://score.anirudhasah.com";
 const SCORE_SERVER_UP_CHECK_INTERVAL_MS = 5 * 60 * 1000;
@@ -21,8 +19,6 @@ const DEFAULT_SETTINGS = {
 let settings = { ...DEFAULT_SETTINGS };
 let adAudioSession = null;
 let adOverlayState = null;
-let reportPopupTimeoutId = null;
-let reportPopupAdName = "unknown-ad";
 let adEndTimeoutId = null;
 let viewerIdPromise = null;
 let scoreServerCheckIntervalId = null;
@@ -121,119 +117,16 @@ function teardownAdOverlayUi() {
   removeControlPopup();
 }
 
-function clearReportPopupTimeout() {
-  if (!reportPopupTimeoutId) {
-    return;
-  }
-
-  clearTimeout(reportPopupTimeoutId);
-  reportPopupTimeoutId = null;
-}
-
-function removeReportPopup() {
-  const popup = document.getElementById(REPORT_POPUP_ID);
-  if (popup) {
-    popup.remove();
-  }
-
-  clearReportPopupTimeout();
-}
-
-function reportIncident() {
-  chrome.runtime.sendMessage({
-    type: "REPORT_INCIDENT",
-    incidentType: "manual-report-button",
-    adName: reportPopupAdName || getAdIdForDisplay(),
-    pageUrl: window.location.href,
-  });
-
-  removeReportPopup();
-}
 
 function goBackNow() {
-  const lastAdName = adOverlayState?.adName || "unknown-ad";
   clearAdEndTimeout();
   hideOverlay();
   endAdVolumeSession();
   adOverlayState = null;
-  showReportPopup(lastAdName);
 
   chrome.runtime.sendMessage({
     type: "USER_GO_BACK_NOW",
   });
-}
-
-function showReportPopup(adName) {
-  removeReportPopup();
-  reportPopupAdName = adName || "unknown-ad";
-
-  const popup = document.createElement("div");
-  popup.id = REPORT_POPUP_ID;
-  popup.style.cssText = [
-    "position: fixed",
-    "right: 20px",
-    "bottom: 20px",
-    "z-index: 2147483647",
-    "width: min(92vw, 340px)",
-    "background: rgba(17, 17, 17, 0.94)",
-    "color: #fff",
-    "border: 1px solid rgba(255, 255, 255, 0.2)",
-    "border-radius: 12px",
-    "padding: 12px",
-    "font-family: system-ui, -apple-system, Segoe UI, sans-serif",
-    "box-sizing: border-box",
-    "display: flex",
-    "flex-direction: column",
-    "gap: 10px",
-  ].join(";");
-
-  const text = document.createElement("div");
-  text.textContent = "If there was a mistake, you can report this incident.";
-  text.style.cssText = ["font-size: 13px", "line-height: 1.4"].join(";");
-
-  const adId = document.createElement("div");
-  adId.textContent = `Ad id: ${reportPopupAdName}`;
-  adId.style.cssText = [
-    "font-size: 12px",
-    "opacity: 0.85",
-    "word-break: break-all",
-  ].join(";");
-
-  const actions = document.createElement("div");
-  actions.style.cssText = ["display: flex", "justify-content: flex-end"].join(
-    ";",
-  );
-
-  const reportButton = document.createElement("button");
-  reportButton.type = "button";
-  reportButton.textContent = "Report incident";
-  reportButton.style.cssText = [
-    "appearance: none",
-    "border: 0",
-    "border-radius: 8px",
-    "padding: 8px 10px",
-    "font-size: 13px",
-    "font-weight: 500",
-    "cursor: pointer",
-    "background: #f2f2f2",
-    "color: #111",
-  ].join(";");
-  reportButton.addEventListener("click", () => {
-    reportIncident();
-  });
-
-  actions.appendChild(reportButton);
-  popup.appendChild(text);
-  popup.appendChild(adId);
-  popup.appendChild(actions);
-  const target = getOverlayMountTarget();
-  if (target) {
-    target.appendChild(popup);
-  }
-
-  reportPopupTimeoutId = setTimeout(() => {
-    removeReportPopup();
-  }, REPORT_POPUP_VISIBLE_MS);
 }
 
 function updateCountdownLabel(label) {
@@ -343,21 +236,6 @@ function mountOverlay(overlay) {
   return true;
 }
 
-function remountReportPopup() {
-  const popup = document.getElementById(REPORT_POPUP_ID);
-  if (!popup) {
-    return;
-  }
-
-  const target = getOverlayMountTarget();
-  if (!target) {
-    return;
-  }
-
-  if (popup.parentElement !== target) {
-    target.appendChild(popup);
-  }
-}
 
 function extractScoreIdFromUrl() {
   const url = new URL(window.location.href);
@@ -744,12 +622,10 @@ function observeFullscreenChanges() {
   const onFullscreenChange = () => {
     const overlay = document.getElementById(OVERLAY_ID);
     if (!overlay) {
-      remountReportPopup();
       return;
     }
 
     mountOverlay(overlay);
-    remountReportPopup();
   };
 
   document.addEventListener("fullscreenchange", onFullscreenChange);
@@ -787,15 +663,10 @@ chrome.runtime.onMessage.addListener((message) => {
   }
 
   if (message?.type === "AD_ENDED") {
-    const lastAdName = adOverlayState?.adName || "unknown-ad";
     clearAdEndTimeout();
     hideOverlay();
     endAdVolumeSession();
     adOverlayState = null;
-
-    if (message.endReason === "manual-end") {
-      showReportPopup(lastAdName);
-    }
   }
 
   if (message?.type === "SETTINGS_UPDATED") {
