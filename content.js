@@ -241,10 +241,17 @@ function extractScoreIdFromUrl() {
   const url = new URL(window.location.href);
   const segments = url.pathname.split("/");
 
-  const vsPattern = /^[a-z0-9]+-vs-[a-z0-9-]+$/i;
+  const vsPattern = /^[a-z0-9-]+-vs-[a-z0-9-]+$/i;
 
   for (const segment of segments) {
     if (vsPattern.test(segment)) {
+      return segment;
+    }
+  }
+
+  const numericPattern = /^\d+$/;
+  for (const segment of segments) {
+    if (numericPattern.test(segment)) {
       return segment;
     }
   }
