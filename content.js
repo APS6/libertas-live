@@ -237,26 +237,30 @@ function mountOverlay(overlay) {
 }
 
 
-function extractScoreIdFromUrl() {
+function extractMatchInfo() {
   const url = new URL(window.location.href);
   const segments = url.pathname.split("/");
 
   const vsPattern = /^[a-z0-9-]+-vs-[a-z0-9-]+$/i;
+  const numericPattern = /^\d+$/;
+
+  let teamVsTeam = "unknown-vs-unknown";
+  let matchId = "unknown";
 
   for (const segment of segments) {
     if (vsPattern.test(segment)) {
-      return segment;
+      teamVsTeam = segment;
+    } else if (numericPattern.test(segment)) {
+      matchId = segment;
     }
   }
 
-  const numericPattern = /^\d+$/;
-  for (const segment of segments) {
-    if (numericPattern.test(segment)) {
-      return segment;
-    }
-  }
+  return { teamVsTeam, matchId };
+}
 
-  return "unknown";
+function extractScoreIdFromUrl() {
+  const { teamVsTeam } = extractMatchInfo();
+  return teamVsTeam;
 }
 
 function isHotstarSportsPage() {
@@ -264,9 +268,9 @@ function isHotstarSportsPage() {
 }
 
 async function getScoreUrl() {
-  const scoreId = encodeURIComponent(extractScoreIdFromUrl());
+  const { teamVsTeam, matchId } = extractMatchInfo();
   const viewerId = encodeURIComponent(await getOrCreateViewerId());
-  return `${SCORE_SERVER_ORIGIN}/score/${scoreId}?viewer=${viewerId}`;
+  return `${SCORE_SERVER_ORIGIN}/score/${encodeURIComponent(teamVsTeam)}?id=${encodeURIComponent(matchId)}&viewer=${viewerId}`;
 }
 
 async function syncIframeScoreUrl(iframe, { forceReload = false } = {}) {
