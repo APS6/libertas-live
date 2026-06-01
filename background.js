@@ -183,7 +183,6 @@ function maybeUnmuteTab(tabId, shouldUnmute) {
   });
 }
 
-
 async function getHotstarTabs() {
   return chrome.tabs.query({ url: "*://*.hotstar.com/*" });
 }

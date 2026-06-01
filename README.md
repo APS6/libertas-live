@@ -1,11 +1,11 @@
 
 # Libertas Live 
 
-**A better live IPL viewing experience for all.**
+**Ad-free cricket on Hotstar for all.**
 
 **[⬇️ Install for Chrome](https://chromewebstore.google.com/detail/libertas-live-a-better-ip/kohlnbhmgcnohpenglfgpmpfbihfbeif)** &nbsp;|&nbsp; **[⬇️ Install for Firefox](https://addons.mozilla.org/en-US/firefox/addon/libertas-live/)**
 
-Libertas Live is a browser extension that enhances your IPL viewing experience on Hotstar by automatically detecting promotional breaks, managing audio, and replacing visual distractions with a clean, real-time scorecard overlay. Never miss a ball of the match, but skip the repetitive interruptions!
+Libertas Live is a browser extension that enhances your cricket viewing experience on Hotstar by automatically detecting promotional breaks, managing audio, and replacing visual distractions with a clean, real-time scorecard overlay. Never miss a ball of the match, but skip the repetitive interruptions!
 
 <p align="center">
   <img src="icons/icon512.png" width="200" alt="Libertas Live Logo">

@@ -1,7 +1,7 @@
 {
-  "name": "Libertas Live - A better IPL experience",
-  "version": "1.2.3",
-  "description": "Enhance your IPL viewing experience by replacing promotional breaks with a clean, real-time scorecard.",
+  "name": "Libertas Live - Ad-free Cricket on Hotstar",
+  "version": "2.0.0",
+  "description": "Enjoy ad-free cricket on Hotstar. Automatically skip promotional breaks with a clean, real-time scorecard overlay.",
   "manifest_version": 3,
   "permissions": ["webRequest", "tabs", "storage", "scripting"],
   "host_permissions": [
