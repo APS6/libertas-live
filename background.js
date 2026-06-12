@@ -183,6 +183,29 @@ function maybeUnmuteTab(tabId, shouldUnmute) {
   });
 }
 
+function buildIncidentReportPayload({ incidentType, adName, pageUrl }) {
+  return {
+    incidentType: incidentType || "unknown",
+    adName: adName || "unknown-ad",
+    pageUrl: pageUrl || "unknown-page",
+    timestamp: new Date().toISOString(),
+  };
+}
+
+async function submitIncidentReport(payload) {
+  const response = await fetch(`${SCORE_SERVER_ORIGIN}/api/incident-reports`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Incident report failed with status ${response.status}`);
+  }
+}
+
 async function getHotstarTabs() {
   return chrome.tabs.query({ url: "*://*.hotstar.com/*" });
 }
@@ -397,6 +420,19 @@ chrome.webRequest.onBeforeRequest.addListener(
       }
 
       if (durationSec == null) {
+        const tabs = await getHotstarTabs();
+        const pageUrl = tabs[0]?.url || "unknown-page";
+        
+        submitIncidentReport(
+          buildIncidentReportPayload({
+            incidentType: "unparsed-ad-name",
+            adName,
+            pageUrl,
+          })
+        ).catch((error) => {
+          console.error("Failed to submit incident report", error);
+        });
+
         return;
       }
 

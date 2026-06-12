@@ -1,6 +1,6 @@
 {
   "name": "Libertas Live - Ad-free Cricket on Hotstar",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "description": "Enjoy ad-free cricket on Hotstar. Automatically skip promotional breaks with a clean, real-time scorecard overlay.",
   "manifest_version": 3,
   "permissions": ["webRequest", "tabs", "storage", "scripting"],
