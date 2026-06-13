@@ -8,6 +8,7 @@ const durationRegexes = [
   /_VCTA_(\d{1,3})(?:_|$)/i,
   /(\d{1,3})s(?:Eng(?:lish)?|Hin(?:di)?)/i,
   /(?:^|[_-])(?:HIN|HING|ENG|HINDI|ENGLISH)(?:[_-])[^\d]*(\d{1,3})(?:_|$)/i,
+  /(?:^|[_-])(\d{1,3})[_-](?:HIN|HING|ENG|HINDI|ENGLISH)(?:_|$)/i,
 ];
 
 const DEFAULT_SETTINGS = {
@@ -185,7 +186,7 @@ function maybeUnmuteTab(tabId, shouldUnmute) {
 
 function buildIncidentReportPayload({ incidentType, adName, pageUrl }) {
   return {
-    incidentType: incidentType || "unknown",
+    incidentType: incidentType,
     adName: adName || "unknown-ad",
     pageUrl: pageUrl || "unknown-page",
     timestamp: new Date().toISOString(),
@@ -422,13 +423,13 @@ chrome.webRequest.onBeforeRequest.addListener(
       if (durationSec == null) {
         const tabs = await getHotstarTabs();
         const pageUrl = tabs[0]?.url || "unknown-page";
-        
+
         submitIncidentReport(
           buildIncidentReportPayload({
             incidentType: "unparsed-ad-name",
             adName,
             pageUrl,
-          })
+          }),
         ).catch((error) => {
           console.error("Failed to submit incident report", error);
         });
