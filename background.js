@@ -5,10 +5,16 @@ Licensed under GPL v3
 */
 
 const durationRegexes = [
-  /_VCTA_(\d{1,3})(?:_|$)/i,
-  /(\d{1,3})s(?:Eng(?:lish)?|Hin(?:di)?)/i,
-  /(?:^|[_-])(?:HIN|HING|ENG|HINDI|ENGLISH)(?:[_-])[^\d]*(\d{1,3})(?:_|$)/i,
-  /(?:^|[_-])(\d{1,3})[_-](?:HIN|HING|ENG|HINDI|ENGLISH)(?:_|$)/i,
+  // _VCTA_30...
+  /_VCTA_(\d{1,3})(?![0-9])/i,
+  // 30sEnglish, 30sHin, etc.
+  /(?<![0-9])(\d{1,3})s(?:Eng(?:lish)?|Hin(?:di)?)/i,
+  // 30s_Hindi, 30s_Telugu, etc.
+  /(?<![0-9])(\d{1,3})s[_-](?:Hindi|English|Telugu|Kannada|Tamil|Marathi|Bengali|Gujarati)/i,
+  // _HIN_10_, _TEL_10_, etc.
+  /(?:^|[_-])(?:HIN|HING|ENG|HINDI|ENGLISH|TEL|KAN|TAM|MAR|BEN|GUJ|MAL|PUN)(?:[_-])[^\d]*(\d{1,3})(?:_|$)/i,
+  // _15_HIN_, _10_TEL_, etc.
+  /(?:^|[_-])(\d{1,3})[_-](?:HIN|HING|ENG|HINDI|ENGLISH|TEL|KAN|TAM|MAR|BEN|GUJ|MAL|PUN)(?:_|$)/i,
 ];
 
 const DEFAULT_SETTINGS = {
