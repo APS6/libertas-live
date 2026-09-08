@@ -412,6 +412,14 @@ console.log("extension loaded");
 
 chrome.webRequest.onBeforeRequest.addListener(
   async (details) => {
+    const allTabs = await getHotstarTabs();
+    const sportsTabs = allTabs.filter((tab) =>
+      /hotstar\.com\/in\/sports\/[^/]+\/.*\/video\/live\/watch/.test(tab.url ?? ""),
+    );
+    if (sportsTabs.length === 0) {
+      return;
+    }
+
     const url = new URL(details.url);
     const adName = url.searchParams.get("adName");
     console.log(`Ad id: ${adName}`);
@@ -427,8 +435,7 @@ chrome.webRequest.onBeforeRequest.addListener(
       }
 
       if (durationSec == null) {
-        const tabs = await getHotstarTabs();
-        const pageUrl = tabs[0]?.url || "unknown-page";
+        const pageUrl = sportsTabs[0]?.url || "unknown-page";
 
         submitIncidentReport(
           buildIncidentReportPayload({
@@ -444,8 +451,7 @@ chrome.webRequest.onBeforeRequest.addListener(
       }
 
       const settings = await getSettings();
-      const tabs = await getHotstarTabs();
-      await startAdHandling({ tabs, adName, durationSec, settings });
+      await startAdHandling({ tabs: sportsTabs, adName, durationSec, settings });
     }
   },
   {
