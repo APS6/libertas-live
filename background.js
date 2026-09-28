@@ -9,8 +9,9 @@ const durationRegexes = [
   /_VCTA_(\d{1,3})(?![0-9])/i,
   // 30sEnglish, 30sHin, etc.
   /(?<![0-9])(\d{1,3})s(?:Eng(?:lish)?|Hin(?:di)?)/i,
-  // 30s_Hindi, 30s_Telugu, etc.
-  /(?<![0-9])(\d{1,3})s[_-](?:Hindi|English|Telugu|Kannada|Tamil|Marathi|Bengali|Gujarati)/i,
+  // 30s_Hindi, 30sNS_Hindi, 30s_Telugu, etc.
+  // [A-Z]* handles optional suffixes like NS (Non-Skip) between the seconds and language
+  /(?<![0-9])(\d{1,3})s[A-Z]*[_-](?:Hindi|English|Telugu|Kannada|Tamil|Marathi|Bengali|Gujarati)/i,
   // _HIN_10_, _TEL_10_, etc.
   /(?:^|[_-])(?:HIN|HING|ENG|HINDI|ENGLISH|TEL|KAN|TAM|MAR|BEN|GUJ|MAL|PUN)(?:[_-])[^\d]*(\d{1,3})(?:_|$)/i,
   // _15_HIN_, _10_TEL_, etc.
